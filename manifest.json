@@ -1,0 +1,78 @@
+{
+  "name": "nuxt-blueprints",
+  "description": "Building blocks for assembling Nuxt applications",
+  "blocks": {
+    "core": {
+      "type": "always",
+      "description": "Database, theming, Nuxt UI, layouts, users table, migration infrastructure",
+      "dependencies": []
+    },
+    "core-email-smtp": {
+      "type": "choice",
+      "choiceGroup": "email-provider",
+      "default": true,
+      "description": "SMTP email transport with MailHog for development",
+      "dependencies": ["core"]
+    },
+    "core-email-mailgun": {
+      "type": "choice",
+      "choiceGroup": "email-provider",
+      "description": "Mailgun HTTP API email transport",
+      "dependencies": ["core"]
+    },
+    "core-email-ses": {
+      "type": "choice",
+      "choiceGroup": "email-provider",
+      "description": "AWS SES email transport",
+      "dependencies": ["core"]
+    },
+    "auth-jwt": {
+      "type": "default",
+      "choiceGroup": "auth-strategy",
+      "default": true,
+      "description": "JWT authentication with email verification, password reset, login/register/profile pages",
+      "dependencies": ["core", "email-provider", "activity-log", "rate-limiting"]
+    },
+    "auth-google": {
+      "type": "choice",
+      "choiceGroup": "auth-strategy",
+      "description": "Google OAuth authentication (not yet implemented)",
+      "dependencies": ["core"],
+      "status": "planned"
+    },
+    "activity-log": {
+      "type": "default",
+      "description": "Audit trail for user actions with database-backed event logging",
+      "dependencies": ["core"]
+    },
+    "rate-limiting": {
+      "type": "default",
+      "description": "Database-backed rate limiting for API endpoints",
+      "dependencies": ["activity-log"]
+    },
+    "s3-storage": {
+      "type": "optional",
+      "description": "S3-compatible file storage with presigned URLs",
+      "dependencies": []
+    },
+    "kitchen-sink": {
+      "type": "optional",
+      "description": "UI component showcase page for development reference",
+      "dependencies": ["core"]
+    }
+  },
+  "choiceGroups": {
+    "email-provider": {
+      "label": "Email Provider",
+      "description": "How the application sends emails",
+      "required": true,
+      "default": "core-email-smtp"
+    },
+    "auth-strategy": {
+      "label": "Authentication Strategy",
+      "description": "How users authenticate",
+      "required": true,
+      "default": "auth-jwt"
+    }
+  }
+}
