@@ -42,12 +42,10 @@
       "dependencies": ["core", "email", "activity-log", "rate-limiting"]
     },
     "auth-google": {
-      "type": "choice",
-      "choiceGroup": "auth",
-      "description": "Google OAuth authentication (not yet implemented)",
+      "type": "optional",
+      "description": "Google OAuth sign-in via Google Identity Services",
       "path": "auth-google",
-      "dependencies": ["core"],
-      "status": "planned"
+      "dependencies": ["auth-jwt"]
     },
     "activity-log": {
       "type": "default",

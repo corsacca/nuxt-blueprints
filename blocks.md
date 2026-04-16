@@ -118,6 +118,20 @@ rate-limiting/memory/server/utils/rate-limit.ts
 
 ---
 
+## auth-google (optional)
+
+Google OAuth sign-in via Google Identity Services. Adds "Sign in with Google" to login and register pages.
+
+```
+app/composables/useGoogleAuth.ts
+server/api/auth/google.post.ts
+migrations/005_add_google_auth.js
+```
+
+Also modifies: `login.vue` (adds Google button), `register.vue` (adds Google button), `profile.vue` (conditional password UI), `useAuth.ts` (adds `loginWithGoogle`), `me.get.ts` (adds `has_password`/`has_google`), `login.post.ts` (null password guard), `password.patch.ts` (set initial password), `account.delete.ts` (passwordless deletion), `email.post.ts` (passwordless email change)
+
+---
+
 ## s3-storage (optional)
 
 S3-compatible file storage with presigned URLs.
