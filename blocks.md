@@ -132,6 +132,20 @@ Also modifies: `login.vue` (adds Google button), `register.vue` (adds Google but
 
 ---
 
+## auth-firebase (optional)
+
+Firebase Authentication as an identity layer. Multiple OAuth providers (Google, Apple, GitHub, Microsoft) via Firebase client SDK.
+
+```
+app/composables/useFirebaseAuth.ts
+server/api/auth/firebase.post.ts
+migrations/005_add_firebase_auth.js
+```
+
+Also modifies: `login.vue` (adds Firebase provider buttons), `register.vue` (adds Firebase provider buttons), `profile.vue` (conditional password UI), `useAuth.ts` (adds `loginWithFirebase`), `me.get.ts` (adds `has_password`/`has_firebase`), `login.post.ts` (null password guard), `password.patch.ts` (set initial password), `account.delete.ts` (passwordless deletion), `email.post.ts` (passwordless email change)
+
+---
+
 ## s3-storage (optional)
 
 S3-compatible file storage with presigned URLs.

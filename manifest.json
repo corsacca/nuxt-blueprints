@@ -47,6 +47,12 @@
       "path": "auth-google",
       "dependencies": ["auth-jwt"]
     },
+    "auth-firebase": {
+      "type": "optional",
+      "description": "Firebase Authentication — multi-provider OAuth via Firebase client SDK",
+      "path": "auth-firebase",
+      "dependencies": ["auth-jwt"]
+    },
     "activity-log": {
       "type": "default",
       "description": "Audit trail for user actions with database-backed event logging",
