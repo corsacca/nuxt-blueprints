@@ -7,17 +7,17 @@ When a user asks to "build from blueprints" or "use the blueprints", follow this
 Read `manifest.json` to understand all available blocks, their types, and dependencies.
 
 Parse the user's request to determine which blocks they want. Map casual language to block names:
-- "JWT auth" / "authentication" → `auth-jwt`
+- "JWT auth" / "authentication" → `auth-jwt` (includes profile)
 - "Google auth" → `auth-google`
-- "Mailgun" / "mailgun email" → `core-email-mailgun`
-- "SES" / "AWS email" → `core-email-ses`
-- "SMTP" / "SMTP email" → `core-email-smtp`
-- "profile" / "profile page" → `profile`
+- "Mailgun" / "mailgun email" → `email/mailgun`
+- "SES" / "AWS email" → `email/ses`
+- "SMTP" / "SMTP email" → `email/smtp`
 - "activity log" / "logging" / "audit" → `activity-log`
-- "rate limiting" / "rate limit" → `rate-limiting`
-- "profile" / "profile page" → included in `auth-jwt` (not a separate block)
+- "rate limiting" / "rate limit" → `rate-limiting/db` (default) or `rate-limiting/memory`
 - "S3" / "storage" / "file upload" → `s3-storage`
 - "kitchen sink" / "component showcase" → `kitchen-sink`
+
+When copying files from a choice group block, also copy files from the group's `shared` directory (declared in manifest.json). For example, `email/mailgun` also needs files from `email/shared/`.
 
 ## Step 2: Resolve blocks
 

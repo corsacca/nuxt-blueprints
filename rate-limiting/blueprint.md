@@ -1,29 +1,14 @@
 # Rate Limiting Block
 
-Database-backed rate limiting for API endpoints. Queries the activity_logs table to count recent attempts.
+Rate limiting for API endpoints. Choose one strategy below.
 
-## Dependencies
+## Options
 
-- `activity-log` (uses the activity_logs table and logEvent function)
+- `db` — Database-backed, queries activity_logs table (default). Persists across restarts, works across instances.
+- `memory` — In-memory Map with TTL (planned). Faster, no DB dependency, resets on restart.
 
-## Files Provided
+Both options export the same `checkRateLimit()` and `logRateLimitExceeded()` function signatures so auth-jwt routes work with either.
 
-```
-server/utils/rate-limit.ts
-```
+## Shared Files
 
-## Package Dependencies
-
-None beyond what `core` provides.
-
-## Wiring Notes
-
-The `auth-jwt` block's login, register, and forgot-password endpoints use rate limiting. Rate limits are configured per-endpoint:
-
-| Endpoint | Identifier | Window | Max Attempts |
-|----------|------------|--------|--------------|
-| `/api/auth/login` | email | 15 min | 5 |
-| `/api/auth/register` | IP address | 15 min | 10 |
-| `/api/auth/forgot-password` | email | 15 min | 3 |
-
-You can add rate limiting to your own endpoints by calling `checkRateLimit()`.
+None — each option provides its own `server/utils/rate-limit.ts`.

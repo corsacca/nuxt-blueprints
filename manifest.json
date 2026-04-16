@@ -5,74 +5,102 @@
     "core": {
       "type": "always",
       "description": "Database, theming, Nuxt UI, layouts, users table, migration infrastructure",
+      "path": "core",
       "dependencies": []
     },
-    "core-email-smtp": {
+    "email/smtp": {
       "type": "choice",
-      "choiceGroup": "email-provider",
+      "choiceGroup": "email",
       "default": true,
       "description": "SMTP email transport with MailHog for development",
+      "path": "email/smtp",
+      "shared": "email/shared",
       "dependencies": ["core"]
     },
-    "core-email-mailgun": {
+    "email/mailgun": {
       "type": "choice",
-      "choiceGroup": "email-provider",
+      "choiceGroup": "email",
       "description": "Mailgun HTTP API email transport",
+      "path": "email/mailgun",
+      "shared": "email/shared",
       "dependencies": ["core"]
     },
-    "core-email-ses": {
+    "email/ses": {
       "type": "choice",
-      "choiceGroup": "email-provider",
+      "choiceGroup": "email",
       "description": "AWS SES email transport",
+      "path": "email/ses",
+      "shared": "email/shared",
       "dependencies": ["core"]
     },
     "auth-jwt": {
       "type": "default",
-      "choiceGroup": "auth-strategy",
+      "choiceGroup": "auth",
       "default": true,
       "description": "JWT authentication with email verification, password reset, login/register/profile pages",
-      "dependencies": ["core", "email-provider", "activity-log", "rate-limiting"]
+      "path": "auth-jwt",
+      "dependencies": ["core", "email", "activity-log", "rate-limiting"]
     },
     "auth-google": {
       "type": "choice",
-      "choiceGroup": "auth-strategy",
+      "choiceGroup": "auth",
       "description": "Google OAuth authentication (not yet implemented)",
+      "path": "auth-google",
       "dependencies": ["core"],
       "status": "planned"
     },
     "activity-log": {
       "type": "default",
       "description": "Audit trail for user actions with database-backed event logging",
+      "path": "activity-log",
       "dependencies": ["core"]
     },
-    "rate-limiting": {
-      "type": "default",
-      "description": "Database-backed rate limiting for API endpoints",
+    "rate-limiting/db": {
+      "type": "choice",
+      "choiceGroup": "rate-limiting",
+      "default": true,
+      "description": "Database-backed rate limiting, queries activity_logs table",
+      "path": "rate-limiting/db",
       "dependencies": ["activity-log"]
+    },
+    "rate-limiting/memory": {
+      "type": "choice",
+      "choiceGroup": "rate-limiting",
+      "description": "In-memory rate limiting, no DB dependency, resets on server restart",
+      "path": "rate-limiting/memory",
+      "dependencies": []
     },
     "s3-storage": {
       "type": "optional",
       "description": "S3-compatible file storage with presigned URLs",
+      "path": "s3-storage",
       "dependencies": []
     },
     "kitchen-sink": {
       "type": "optional",
       "description": "UI component showcase page for development reference",
+      "path": "kitchen-sink",
       "dependencies": ["core"]
     }
   },
   "choiceGroups": {
-    "email-provider": {
+    "email": {
       "label": "Email Provider",
       "description": "How the application sends emails",
       "required": true,
-      "default": "core-email-smtp"
+      "default": "email/smtp"
     },
-    "auth-strategy": {
+    "auth": {
       "label": "Authentication Strategy",
       "description": "How users authenticate",
       "required": true,
       "default": "auth-jwt"
+    },
+    "rate-limiting": {
+      "label": "Rate Limiting Strategy",
+      "description": "How API endpoints are rate limited",
+      "required": false,
+      "default": "rate-limiting/db"
     }
   }
 }
