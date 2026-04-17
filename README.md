@@ -2,20 +2,46 @@
 
 A composable block-based system for scaffolding Nuxt applications. Instead of sharing code as a runtime layer, blueprints are copied into your project at creation time. You own the code and can edit anything directly.
 
-## How to Use
+## Getting Started
 
-1. Start a new Nuxt project (or open an existing one)
-2. Open Claude Code and describe what you need:
+Blueprints are assembled by Claude Code — it reads this repo, maps your request to blocks, and scaffolds a new Nuxt project with everything wired together.
+
+### 1. Create an empty directory for your project
+
+```bash
+mkdir my-app && cd my-app
+```
+
+You don't need to run `nuxi init` yourself — Claude will scaffold the Nuxt project for you from the `ui` template.
+
+### 2. Open Claude Code in that directory
+
+```bash
+claude
+```
+
+### 3. Tell Claude to build from the blueprints
+
+Point it at this repo and describe what you want:
 
 ```
-Build a Nuxt app from the Nuxt blueprints.
-I want JWT auth, Mailgun, and S3 storage.
+Build a Nuxt app from the blueprints at
+https://github.com/corsacca/nuxt-blueprints
+
+I want JWT auth, Mailgun email, and S3 storage.
 ```
 
-3. Claude resolves dependencies, confirms the block list, and scaffolds everything
-4. Run `npm install && npm run dev`
+Claude will clone the blueprints repo (or read it directly), resolve dependencies from [manifest.json](manifest.json), confirm the block list with you, then scaffold the project following the assembly instructions in [CLAUDE.md](CLAUDE.md).
 
-See [BLUEPRINTS.md](BLUEPRINTS.md) for the full philosophy and detailed workflow.
+### 4. Install and run
+
+```bash
+cp .env.example .env   # then fill in real values
+npm install
+npm run dev
+```
+
+See [BLUEPRINTS.md](BLUEPRINTS.md) for the full philosophy and [CLAUDE.md](CLAUDE.md) for the step-by-step assembly process Claude follows.
 
 ## Available Blocks
 
