@@ -12,7 +12,7 @@ app/layouts/default.vue
 app/pages/dashboard.vue
 app/pages/index.vue
 migrations/001_create_users_table.js
-scripts/migrate.mjs
+server/plugins/migrations.ts
 server/utils/database.ts
 ```
 

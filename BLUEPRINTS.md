@@ -90,7 +90,7 @@ The foundation layer on top of `nuxt init`. Every project gets this.
 
 **Provides:**
 - PostgreSQL database connection and query utilities (`server/utils/database.ts`)
-- Migration infrastructure (`scripts/migrate.mjs`)
+- Migration infrastructure (Nitro plugin runs migrations on server startup)
 - Users table migration (id, email, display_name, created, updated)
 - Theming system — Nuxt UI integration, custom color config, dark mode
 - `useTheme` composable and `ThemeToggle` component
@@ -236,8 +236,8 @@ nuxt-blueprints/
 │   │   ├── layouts/
 │   │   └── pages/
 │   ├── server/utils/
-│   ├── migrations/
-│   └── scripts/
+│   ├── server/plugins/
+│   └── migrations/
 │
 ├── core-email-smtp/
 │   ├── blueprint.md

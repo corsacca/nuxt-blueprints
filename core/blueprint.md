@@ -22,7 +22,7 @@ app/layouts/auth.vue
 app/pages/index.vue
 app/pages/dashboard.vue
 server/utils/database.ts
-scripts/migrate.mjs
+server/plugins/migrations.ts
 migrations/001_create_users_table.js
 ```
 
@@ -85,14 +85,7 @@ Add dependency:
 }
 ```
 
-Add/modify scripts:
-```json
-{
-  "migrate": "node scripts/migrate.mjs",
-  "dev": "npm run migrate && nuxt dev",
-  "build": "npm run migrate && nuxt build"
-}
-```
+No script changes needed. Migrations run automatically on server startup via the Nitro plugin (`server/plugins/migrations.ts`).
 
 ### `app/app.vue`
 
@@ -132,5 +125,5 @@ NUXT_PUBLIC_SITE_URL=http://localhost:3000
 - The `default.vue` layout is a basic app shell. Auth blocks should modify it to add user info and profile links in the header.
 - The `index.vue` page is a minimal landing page. Auth blocks should modify it to add login/register CTAs and auth-aware redirects.
 - The `dashboard.vue` page is a placeholder. Auth blocks should add the auth middleware to protect it.
-- The migration runner (`scripts/migrate.mjs`) runs all `.js` files in `migrations/` sorted by filename number prefix.
+- Migrations run automatically on server startup via the Nitro plugin (`server/plugins/migrations.ts`). It loads all `.js` files in `migrations/` sorted by filename number prefix.
 - Delete the ui template's demo components (`AppLogo.vue`, `TemplateMenu.vue`) as they are not needed.

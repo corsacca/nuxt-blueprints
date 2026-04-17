@@ -7,7 +7,7 @@ Every project includes this block automatically.
 ## What You Get
 
 - PostgreSQL database connection (`server/utils/database.ts`)
-- Migration infrastructure (`scripts/migrate.mjs`) -- runs on `npm run dev` and `npm run build`
+- Migration infrastructure (Nitro plugin runs pending migrations automatically on server startup)
 - Users table (id, email, display_name, avatar, timestamps)
 - Nuxt UI integration with custom theme color support
 - `useTheme` composable and `ThemeToggle` component
@@ -24,7 +24,7 @@ app/layouts/auth.vue
 app/pages/index.vue
 app/pages/dashboard.vue
 server/utils/database.ts
-scripts/migrate.mjs
+server/plugins/migrations.ts
 migrations/001_create_users_table.js
 ```
 
