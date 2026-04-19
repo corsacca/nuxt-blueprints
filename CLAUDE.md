@@ -81,10 +81,11 @@ For each selected block, follow its `blueprint.md` instructions:
 
 1. **"New Files to Copy"** — Use `cp` via the Bash tool to copy source files from the block directory into the project. Do NOT use the Write tool to recreate file contents — that is slow and error-prone. Use `mkdir -p` to create directories, then `cp` to copy files. Copy multiple files in a single command where possible. E.g.:
    ```bash
-   mkdir -p <project>/app/layouts <project>/app/composables <project>/server/utils
+   mkdir -p <project>/app/layouts <project>/app/composables <project>/server/utils <project>/server/database <project>/migrations
    cp <blueprints>/core/app/layouts/default.vue <project>/app/layouts/
    cp <blueprints>/core/app/layouts/auth.vue <project>/app/layouts/
    cp <blueprints>/core/server/utils/database.ts <project>/server/utils/
+   cp <blueprints>/core/migrations/001_create_users_table.ts <project>/migrations/
    ```
 2. **"Existing Files to Modify"** — These files already exist from the ui template or a prior block. Apply the modifications described in the blueprint.md. Do NOT replace the whole file — merge the changes.
 3. **"Wiring Notes"** — Follow these when combining blocks. E.g., auth-jwt's notes explain how to modify core's `default.vue` to add user info in the header.
@@ -101,9 +102,26 @@ Build a single `.env.example` by combining all environment variables from all se
 
 ## Step 8: Number migrations
 
-Collect all migration files from selected blocks. They already have sequential numbers (001, 002, 003, 004) that work together. Copy them all into the project's `migrations/` directory.
+Collect all migration files from selected blocks. They are `.ts` files with sequential numeric prefixes (001, 002, 003, 004, 005) that work together. Copy them all into the project's `migrations/` directory.
+
+Choice groups share a number (e.g., `auth-google` and `auth-firebase` both ship `005_*.ts`). Only one of each group is selected, so there's no collision.
 
 If there are gaps in numbering (e.g., block was skipped), renumber them sequentially.
+
+## Step 8.5: Merge database schema fragments
+
+Each blueprint that touches the database ships a `server/database/schema.ts` fragment that extends the `Database` interface consumed by Kysely.
+
+1. Copy `core/server/database/schema.ts` into `<project>/server/database/schema.ts` as the starting point. It defines the base `UsersTable` and a `Database` interface with just `{ users }`.
+2. For each additional blueprint with a `server/database/schema.ts`, merge its extensions into the project's schema file, in dependency order:
+   - `auth-jwt` adds auth columns to `UsersTable` and appends `password_reset_requests`
+   - `activity-log` appends `activity_logs`
+   - `auth-google` adds `google_id` to `UsersTable` and relaxes `password` to nullable
+   - `auth-firebase` adds `firebase_uid` to `UsersTable` and relaxes `password` to nullable
+
+The result is a single `server/database/schema.ts` file in the project with one consolidated `Database` interface covering every selected blueprint's tables and columns. The Kysely query builder uses this type for autocomplete and compile-time type checking across all query sites.
+
+Do NOT copy each blueprint's `schema.ts` as a separate file — they're fragments meant to be merged, not kept as separate files.
 
 ## Step 9: Write .blueprints.json
 

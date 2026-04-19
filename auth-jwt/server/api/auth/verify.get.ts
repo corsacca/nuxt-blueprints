@@ -8,11 +8,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Find user with this token
-    const users = await sql`
-      SELECT id, verified FROM users WHERE token_key = ${token}
-    `
-
-    const user = users[0]
+    const user = await db
+      .selectFrom('users')
+      .select(['id', 'verified'])
+      .where('token_key', '=', token)
+      .executeTakeFirst()
 
     if (!user) {
       throw createError({ statusCode: 404, statusMessage: 'Invalid verification token' })
@@ -24,11 +24,11 @@ export default defineEventHandler(async (event) => {
     }
 
     // Mark user as verified
-    await sql`
-      UPDATE users
-      SET verified = true, updated = ${new Date().toISOString()}
-      WHERE id = ${user.id}
-    `
+    await db
+      .updateTable('users')
+      .set({ verified: true, updated: new Date().toISOString() })
+      .where('id', '=', user.id)
+      .execute()
 
     // Redirect to login with success message
     return sendRedirect(event, '/login?verified=success')

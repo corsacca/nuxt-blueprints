@@ -1,4 +1,5 @@
-import { sql } from './database'
+import { sql } from 'kysely'
+import { db } from './database'
 import { logEvent } from './activity-logger'
 
 interface RateLimitResult {
@@ -21,18 +22,19 @@ export async function checkRateLimit(
   const windowStart = Date.now() - windowMs
 
   try {
-    const result = await sql`
-      SELECT
-        COUNT(*)::int as count,
-        MIN(timestamp) as oldest_attempt
-      FROM activity_logs
-      WHERE event_type = ${eventType}
-        AND metadata->>${identifierField} = ${identifierValue}
-        AND timestamp > ${windowStart}
-    `
+    const result = await db
+      .selectFrom('activity_logs')
+      .select([
+        sql<number>`COUNT(*)::int`.as('count'),
+        sql<number | null>`MIN(timestamp)`.as('oldest_attempt'),
+      ])
+      .where('event_type', '=', eventType)
+      .where(sql`metadata->>${sql.lit(identifierField)}`, '=', identifierValue)
+      .where('timestamp', '>', windowStart)
+      .executeTakeFirst()
 
-    const count = result[0]?.count || 0
-    const oldestAttempt = result[0]?.oldest_attempt
+    const count = result?.count || 0
+    const oldestAttempt = result?.oldest_attempt
 
     if (count >= maxAttempts) {
       const retryAfterMs = oldestAttempt

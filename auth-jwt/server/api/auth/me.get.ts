@@ -6,13 +6,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get fresh user data from database
-  const users = await sql`
-    SELECT id, email, display_name, avatar, verified, superadmin, created, updated
-    FROM users
-    WHERE id = ${authUser.userId}
-  `
-
-  const user = users[0]
+  const user = await db
+    .selectFrom('users')
+    .select(['id', 'email', 'display_name', 'avatar', 'verified', 'superadmin', 'created', 'updated'])
+    .where('id', '=', authUser.userId)
+    .executeTakeFirst()
 
   if (!user) {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })

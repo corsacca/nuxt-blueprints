@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt'
+import { sql } from 'kysely'
 
 export default defineEventHandler(async (event) => {
   // Require authentication
@@ -46,24 +47,21 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get current user password hash
-  const userResult = await sql`
-    SELECT password FROM users WHERE id = ${user.userId}
-  `
+  const current = await db
+    .selectFrom('users')
+    .select('password')
+    .where('id', '=', user.userId)
+    .executeTakeFirst()
 
-  if (userResult.length === 0) {
+  if (!current) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
     })
   }
 
-  const currentPasswordHash = userResult[0].password
-
   // Verify current password
-  const isCurrentPasswordValid = await bcrypt.compare(
-    current_password,
-    currentPasswordHash
-  )
+  const isCurrentPasswordValid = await bcrypt.compare(current_password, current.password)
 
   if (!isCurrentPasswordValid) {
     // Log failed password change attempt
@@ -89,11 +87,11 @@ export default defineEventHandler(async (event) => {
   const newPasswordHash = await bcrypt.hash(new_password, saltRounds)
 
   // Update password in database
-  await sql`
-    UPDATE users
-    SET password = ${newPasswordHash}, updated = NOW()
-    WHERE id = ${user.userId}
-  `
+  await db
+    .updateTable('users')
+    .set({ password: newPasswordHash, updated: sql`now()` })
+    .where('id', '=', user.userId)
+    .execute()
 
   // Log successful password change
   logEvent({

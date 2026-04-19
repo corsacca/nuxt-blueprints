@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt'
 import jwt from 'jsonwebtoken'
-import { sql } from '../../utils/database'
+import { db } from '../../utils/database'
 import { logLoginFailed, logLogin } from '../../utils/activity-logger'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
 import { readBody, getHeader, setResponseHeader, setCookie } from 'h3'
@@ -27,11 +27,11 @@ export default defineEventHandler(async (event) => {
   }
 
   // Query existing user from database
-  const users = await sql`
-    SELECT * FROM users WHERE email = ${email}
-  `
-
-  const user = users[0]
+  const user = await db
+    .selectFrom('users')
+    .selectAll()
+    .where('email', '=', email)
+    .executeTakeFirst()
 
   if (!user) {
     logLoginFailed(email, userAgent, { reason: 'user_not_found' })

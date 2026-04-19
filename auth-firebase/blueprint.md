@@ -13,7 +13,8 @@ Firebase Authentication as an identity layer for multi-provider OAuth. Supports 
 ```
 app/composables/useFirebaseAuth.ts
 server/api/auth/firebase.post.ts
-migrations/005_add_firebase_auth.js
+server/database/schema.ts
+migrations/005_add_firebase_auth.ts
 ```
 
 ## Package Dependencies
@@ -69,7 +70,11 @@ FIREBASE_SERVICE_ACCOUNT={"type":"service_account","project_id":"...","private_k
 
 ## Migrations
 
-- `005_add_firebase_auth.js` — Adds `firebase_uid` (TEXT UNIQUE) column to users table, makes `password` column nullable for Firebase-only accounts, adds index on `firebase_uid`
+- `005_add_firebase_auth.ts` — Adds `firebase_uid` (TEXT UNIQUE) column to users table, makes `password` column nullable for Firebase-only accounts, adds index on `firebase_uid`
+
+## Database & Types
+
+- `server/database/schema.ts` — Extends `UsersTable` with `firebase_uid` and relaxes `password` to nullable. Merge into the project's consolidated `server/database/schema.ts` during assembly (after core + auth-jwt).
 
 ## Wiring Notes
 
@@ -79,16 +84,20 @@ When this block is included, modify files provided by `auth-jwt` and `core`:
 
 ### `server/api/auth/me.get.ts` — Add `has_password` and `has_firebase` flags
 
-Change the SELECT query to include password and Firebase status:
+Change the SELECT to include password and Firebase status via computed columns:
 
 ```typescript
-const users = await sql`
-  SELECT id, email, display_name, avatar, verified, superadmin, created, updated,
-         password IS NOT NULL as has_password,
-         firebase_uid IS NOT NULL as has_firebase
-  FROM users
-  WHERE id = ${authUser.userId}
-`
+import { sql } from 'kysely'
+
+const user = await db
+  .selectFrom('users')
+  .select([
+    'id', 'email', 'display_name', 'avatar', 'verified', 'superadmin', 'created', 'updated',
+    sql<boolean>`password IS NOT NULL`.as('has_password'),
+    sql<boolean>`firebase_uid IS NOT NULL`.as('has_firebase'),
+  ])
+  .where('id', '=', authUser.userId)
+  .executeTakeFirst()
 ```
 
 ---
@@ -113,10 +122,16 @@ if (!user.password) {
 After fetching the user's password hash, add a branch for null passwords. Firebase-only users can set their first password without providing a current one:
 
 ```typescript
-const currentPasswordHash = userResult[0].password
+import { sql } from 'kysely'
+
+const current = await db
+  .selectFrom('users')
+  .select('password')
+  .where('id', '=', user.userId)
+  .executeTakeFirst()
 
 // Firebase-only user setting their first password
-if (!currentPasswordHash) {
+if (!current?.password) {
   if (!new_password || typeof new_password !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'New password is required' })
   }
@@ -128,9 +143,11 @@ if (!currentPasswordHash) {
   }
 
   const newPasswordHash = await bcrypt.hash(new_password, 12)
-  await sql`
-    UPDATE users SET password = ${newPasswordHash}, updated = NOW() WHERE id = ${user.userId}
-  `
+  await db
+    .updateTable('users')
+    .set({ password: newPasswordHash, updated: sql`now()` })
+    .where('id', '=', user.userId)
+    .execute()
 
   logEvent({
     eventType: 'PASSWORD_CHANGED',
@@ -154,14 +171,12 @@ Also remove the early validation that requires `current_password` — move that 
 After fetching the user's password hash, add a branch for null passwords:
 
 ```typescript
-const currentPasswordHash = userResult[0].password
-
-if (currentPasswordHash) {
+if (current.password) {
   // Existing behavior: verify password
   if (!password || typeof password !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'Password is required' })
   }
-  const isPasswordValid = await bcrypt.compare(password, currentPasswordHash)
+  const isPasswordValid = await bcrypt.compare(password, current.password)
   if (!isPasswordValid) {
     logEvent({ ... }) // existing failed deletion log
     throw createError({ statusCode: 401, statusMessage: 'Password is incorrect' })
@@ -170,7 +185,7 @@ if (currentPasswordHash) {
 // If no password hash (Firebase-only user), skip password verification
 ```
 
-Move the existing password validation and bcrypt check inside the `if (currentPasswordHash)` block. The rest of the deletion logic stays unchanged.
+Move the existing password validation and bcrypt check inside the `if (current.password)` block. The rest of the deletion logic stays unchanged.
 
 ---
 

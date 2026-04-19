@@ -32,14 +32,13 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Find valid reset request
-    const resetRequests = await sql`
-      SELECT * FROM password_reset_requests
-      WHERE token = ${sanitizedToken}
-      AND used = false
-      AND expires > ${new Date().toISOString()}
-    `
-
-    const resetRequest = resetRequests[0]
+    const resetRequest = await db
+      .selectFrom('password_reset_requests')
+      .selectAll()
+      .where('token', '=', sanitizedToken)
+      .where('used', '=', false)
+      .where('expires', '>', new Date().toISOString())
+      .executeTakeFirst()
 
     if (!resetRequest) {
       throw createError({
@@ -51,26 +50,33 @@ export default defineEventHandler(async (event) => {
     // Hash the new password
     const hashedPassword = await bcrypt.hash(password, 12)
 
-    // Update user's password
-    await sql`
-      UPDATE users
-      SET password = ${hashedPassword}
-      WHERE id = ${resetRequest.user_id}
-    `
+    await db.transaction().execute(async (trx) => {
+      // Update user's password
+      await trx
+        .updateTable('users')
+        .set({ password: hashedPassword })
+        .where('id', '=', resetRequest.user_id)
+        .execute()
 
-    // Mark token as used
-    await sql`
-      UPDATE password_reset_requests
-      SET used = true
-      WHERE token = ${sanitizedToken}
-    `
+      // Mark token as used
+      await trx
+        .updateTable('password_reset_requests')
+        .set({ used: true })
+        .where('token', '=', sanitizedToken)
+        .execute()
 
-    // Clean up old/expired reset requests
-    await sql`
-      DELETE FROM password_reset_requests
-      WHERE user_id = ${resetRequest.user_id}
-      AND (used = true OR expires <= ${new Date().toISOString()})
-    `
+      // Clean up old/expired reset requests
+      await trx
+        .deleteFrom('password_reset_requests')
+        .where('user_id', '=', resetRequest.user_id)
+        .where((eb) =>
+          eb.or([
+            eb('used', '=', true),
+            eb('expires', '<=', new Date().toISOString()),
+          ])
+        )
+        .execute()
+    })
 
     // Log the password reset
     const userAgent = getHeader(event, 'user-agent') || undefined

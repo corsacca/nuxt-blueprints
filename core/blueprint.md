@@ -21,9 +21,10 @@ app/layouts/default.vue
 app/layouts/auth.vue
 app/pages/index.vue
 app/pages/dashboard.vue
+server/database/schema.ts
 server/utils/database.ts
 server/plugins/migrations.ts
-migrations/001_create_users_table.js
+migrations/001_create_users_table.ts
 ```
 
 ## Existing Files to Modify
@@ -78,9 +79,11 @@ runtimeConfig: {
 
 ### `package.json`
 
-Add dependency:
+Add dependencies:
 ```json
 {
+  "kysely": "^0.28.0",
+  "kysely-postgres-js": "^2.0.0",
   "postgres": "^3.4.7"
 }
 ```
@@ -118,12 +121,17 @@ NUXT_PUBLIC_SITE_URL=http://localhost:3000
 
 ## Migrations
 
-- `001_create_users_table.js` — Creates the `users` table with core fields (id, email, display_name, avatar, timestamps)
+- `001_create_users_table.ts` — Creates the `users` table with core fields (id, email, display_name, avatar, timestamps)
+
+## Database & Types
+
+- `server/database/schema.ts` — The `Database` interface consumed by Kysely. Other blueprints extend this with their own tables/columns during assembly.
+- `server/utils/database.ts` — Exports `db: Kysely<Database>` (typed query builder) and re-exports `sql` for raw-SQL escape hatches.
 
 ## Wiring Notes
 
 - The `default.vue` layout is a basic app shell. Auth blocks should modify it to add user info and profile links in the header.
 - The `index.vue` page is a minimal landing page. Auth blocks should modify it to add login/register CTAs and auth-aware redirects.
 - The `dashboard.vue` page is a placeholder. Auth blocks should add the auth middleware to protect it.
-- Migrations run automatically on server startup via the Nitro plugin (`server/plugins/migrations.ts`). It loads all `.js` files in `migrations/` sorted by filename number prefix.
+- Migrations run automatically on server startup via the Nitro plugin (`server/plugins/migrations.ts`). It uses Kysely's `Migrator` + `FileMigrationProvider`, loading all `.ts` files in `migrations/` sorted by filename. Kysely manages its own `kysely_migration` + `kysely_migration_lock` tracking tables.
 - Delete the ui template's demo components (`AppLogo.vue`, `TemplateMenu.vue`) as they are not needed.

@@ -1,4 +1,4 @@
-import { sql } from './database'
+import { db } from './database'
 import crypto from 'crypto'
 import type { H3Event } from 'h3'
 import { getAuthUser } from './auth'
@@ -17,23 +17,19 @@ interface LogEventOptions {
  */
 export async function logEvent(options: LogEventOptions): Promise<void> {
   try {
-    const id = crypto.randomUUID()
-    const timestamp = Date.now()
-
-    await sql`
-      INSERT INTO activity_logs (
-        id, timestamp, event_type, table_name, record_id, user_id, user_agent, metadata
-      ) VALUES (
-        ${id},
-        ${timestamp},
-        ${options.eventType},
-        ${options.tableName || null},
-        ${options.recordId || null},
-        ${options.userId || null},
-        ${options.userAgent || null},
-        ${options.metadata || {}}
-      )
-    `
+    await db
+      .insertInto('activity_logs')
+      .values({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        event_type: options.eventType,
+        table_name: options.tableName ?? null,
+        record_id: options.recordId ?? null,
+        user_id: options.userId ?? null,
+        user_agent: options.userAgent ?? null,
+        metadata: options.metadata ?? {},
+      })
+      .execute()
   } catch (error) {
     // Log error but don't throw - logging should never break the main flow
     console.error('Failed to log activity:', error)
