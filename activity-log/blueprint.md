@@ -10,8 +10,17 @@ Database-backed audit trail for user actions.
 
 ```
 server/utils/activity-logger.ts
-migrations/004_create_activity_logs_table.js
+server/database/schema.ts
+migrations/004_create_activity_logs_table.ts
 ```
+
+## Migrations
+
+- `004_create_activity_logs_table.ts` — Creates the `activity_logs` table with indexes on timestamp (DESC), user_id, and event_type.
+
+## Database & Types
+
+- `server/database/schema.ts` — Adds `ActivityLogsTable` to the `Database` interface. Merge into the project's consolidated `server/database/schema.ts` during assembly.
 
 ## Package Dependencies
 

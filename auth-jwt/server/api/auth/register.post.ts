@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt'
 import { randomUUID } from 'crypto'
-import { sql } from '../../utils/database'
+import { db } from '../../utils/database'
 import { logRegisterAttempt } from '../../utils/activity-logger'
 import { sendTemplateEmail } from '../../utils/email'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
@@ -36,11 +36,13 @@ export default defineEventHandler(async (event) => {
   logRegisterAttempt(clientIp, userAgent)
 
   // Check if user already exists
-  const existingUser = await sql`
-    SELECT id FROM users WHERE email = ${email}
-  `
+  const existingUser = await db
+    .selectFrom('users')
+    .select('id')
+    .where('email', '=', email)
+    .executeTakeFirst()
 
-  if (existingUser.length > 0) {
+  if (existingUser) {
     throw createError({ statusCode: 409, statusMessage: 'User with this email already exists' })
   }
 
@@ -54,15 +56,22 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Create user (initially unverified)
-    await sql`
-      INSERT INTO users (
-        id, created, updated, email, password,
-        verified, superadmin, display_name, avatar, token_key, email_visibility
-      ) VALUES (
-        ${userId}, ${now}, ${now}, ${email}, ${hashedPassword},
-        false, false, ${display_name}, '', ${tokenKey}, false
-      )
-    `
+    await db
+      .insertInto('users')
+      .values({
+        id: userId,
+        created: now,
+        updated: now,
+        email,
+        password: hashedPassword,
+        verified: false,
+        superadmin: false,
+        display_name,
+        avatar: '',
+        token_key: tokenKey,
+        email_visibility: false,
+      })
+      .execute()
 
     // Send verification email
     const baseUrl = getRequestURL(event).origin

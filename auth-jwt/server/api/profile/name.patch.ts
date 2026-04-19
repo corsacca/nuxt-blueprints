@@ -1,3 +1,5 @@
+import { sql } from 'kysely'
+
 export default defineEventHandler(async (event) => {
   // Require authentication
   const user = requireAuth(event)
@@ -31,14 +33,14 @@ export default defineEventHandler(async (event) => {
   }
 
   // Update display name in database
-  const result = await sql`
-    UPDATE users
-    SET display_name = ${trimmedName}, updated = NOW()
-    WHERE id = ${user.userId}
-    RETURNING id, email, display_name
-  `
+  const updated = await db
+    .updateTable('users')
+    .set({ display_name: trimmedName, updated: sql`now()` })
+    .where('id', '=', user.userId)
+    .returning(['id', 'email', 'display_name'])
+    .executeTakeFirst()
 
-  if (result.length === 0) {
+  if (!updated) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
@@ -60,6 +62,6 @@ export default defineEventHandler(async (event) => {
 
   return {
     success: true,
-    user: result[0]
+    user: updated
   }
 })

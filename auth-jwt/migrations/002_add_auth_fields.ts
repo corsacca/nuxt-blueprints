@@ -1,0 +1,27 @@
+import { Kysely, sql } from 'kysely'
+
+export async function up(db: Kysely<any>): Promise<void> {
+  await db.schema
+    .alterTable('users')
+    .addColumn('password', 'text', col => col.notNull().defaultTo(''))
+    .addColumn('verified', 'boolean', col => col.defaultTo(false))
+    .addColumn('superadmin', 'boolean', col => col.defaultTo(false))
+    .addColumn('token_key', 'uuid', col => col.defaultTo(sql`gen_random_uuid()`))
+    .addColumn('email_visibility', 'boolean', col => col.defaultTo(false))
+    .addColumn('pending_email', 'text')
+    .addColumn('email_change_token', 'uuid')
+    .execute()
+}
+
+export async function down(db: Kysely<any>): Promise<void> {
+  await db.schema
+    .alterTable('users')
+    .dropColumn('password')
+    .dropColumn('verified')
+    .dropColumn('superadmin')
+    .dropColumn('token_key')
+    .dropColumn('email_visibility')
+    .dropColumn('pending_email')
+    .dropColumn('email_change_token')
+    .execute()
+}

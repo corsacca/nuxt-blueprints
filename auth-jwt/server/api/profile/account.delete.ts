@@ -17,22 +17,21 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get current user password hash
-  const userResult = await sql`
-    SELECT password, email FROM users WHERE id = ${user.userId}
-  `
+  const current = await db
+    .selectFrom('users')
+    .select(['password', 'email'])
+    .where('id', '=', user.userId)
+    .executeTakeFirst()
 
-  if (userResult.length === 0) {
+  if (!current) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
     })
   }
 
-  const currentPasswordHash = userResult[0].password
-  const userEmail = userResult[0].email
-
   // Verify password
-  const isPasswordValid = await bcrypt.compare(password, currentPasswordHash)
+  const isPasswordValid = await bcrypt.compare(password, current.password)
 
   if (!isPasswordValid) {
     // Log failed account deletion attempt
@@ -54,20 +53,25 @@ export default defineEventHandler(async (event) => {
   }
 
   // Delete related data in correct order (foreign key constraints)
-  // 1. Delete password reset requests
-  await sql`
-    DELETE FROM password_reset_requests WHERE user_id = ${user.userId}
-  `
+  await db.transaction().execute(async (trx) => {
+    // 1. Delete password reset requests
+    await trx
+      .deleteFrom('password_reset_requests')
+      .where('user_id', '=', user.userId)
+      .execute()
 
-  // 2. Delete activity logs for this user
-  await sql`
-    DELETE FROM activity_logs WHERE user_id = ${user.userId}
-  `
+    // 2. Delete activity logs for this user
+    await trx
+      .deleteFrom('activity_logs')
+      .where('user_id', '=', user.userId)
+      .execute()
 
-  // 3. Delete the user
-  await sql`
-    DELETE FROM users WHERE id = ${user.userId}
-  `
+    // 3. Delete the user
+    await trx
+      .deleteFrom('users')
+      .where('id', '=', user.userId)
+      .execute()
+  })
 
   // Log account deletion (this log entry won't have user_id since we deleted it)
   logEvent({
@@ -76,7 +80,7 @@ export default defineEventHandler(async (event) => {
     recordId: user.userId,
     userAgent: getHeader(event, 'user-agent') || undefined,
     metadata: {
-      email: userEmail
+      email: current.email
     }
   })
 

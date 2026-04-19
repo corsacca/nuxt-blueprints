@@ -32,8 +32,9 @@ server/api/profile/name.patch.ts
 server/api/profile/email.post.ts
 server/api/profile/password.patch.ts
 server/api/profile/account.delete.ts
-migrations/002_add_auth_fields.js
-migrations/003_create_password_reset_table.js
+server/database/schema.ts
+migrations/002_add_auth_fields.ts
+migrations/003_create_password_reset_table.ts
 ```
 
 ## Package Dependencies
@@ -69,8 +70,12 @@ JWT_SECRET=your-super-secret-jwt-key-change-this
 
 ## Migrations
 
-- `002_add_auth_fields.js` — Adds password, verified, superadmin, token_key, email_visibility, pending_email, email_change_token columns to the users table
-- `003_create_password_reset_table.js` — Creates the password_reset_requests table
+- `002_add_auth_fields.ts` — Adds password, verified, superadmin, token_key, email_visibility, pending_email, email_change_token columns to the users table
+- `003_create_password_reset_table.ts` — Creates the password_reset_requests table
+
+## Database & Types
+
+- `server/database/schema.ts` — Extends core's `UsersTable` with the auth columns and adds `PasswordResetRequestsTable`. Merge into the project's consolidated `server/database/schema.ts` during assembly.
 
 ## Wiring Notes
 

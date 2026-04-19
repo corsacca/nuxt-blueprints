@@ -1,4 +1,4 @@
-import { sql } from './database'
+import { db } from './database'
 import crypto from 'crypto'
 import type { H3Event } from 'h3'
 import { getAuthUser } from './auth'
@@ -17,23 +17,19 @@ interface LogEventOptions {
  */
 export async function logEvent(options: LogEventOptions): Promise<void> {
   try {
-    const id = crypto.randomUUID()
-    const timestamp = Date.now()
-
-    await sql`
-      INSERT INTO activity_logs (
-        id, timestamp, event_type, table_name, record_id, user_id, user_agent, metadata
-      ) VALUES (
-        ${id},
-        ${timestamp},
-        ${options.eventType},
-        ${options.tableName || null},
-        ${options.recordId || null},
-        ${options.userId || null},
-        ${options.userAgent || null},
-        ${options.metadata || {}}
-      )
-    `
+    await db
+      .insertInto('activity_logs')
+      .values({
+        id: crypto.randomUUID(),
+        timestamp: Date.now(),
+        event_type: options.eventType,
+        table_name: options.tableName ?? null,
+        record_id: options.recordId ?? null,
+        user_id: options.userId ?? null,
+        user_agent: options.userAgent ?? null,
+        metadata: options.metadata ?? {},
+      })
+      .execute()
   } catch (error) {
     // Log error but don't throw - logging should never break the main flow
     console.error('Failed to log activity:', error)
@@ -75,14 +71,7 @@ export function logCreate(
     userAgent = info.userAgent
   }
 
-  logEvent({
-    eventType: 'CREATE',
-    tableName,
-    recordId,
-    userId,
-    userAgent,
-    metadata
-  })
+  logEvent({ eventType: 'CREATE', tableName, recordId, userId, userAgent, metadata })
 }
 
 /**
@@ -105,14 +94,7 @@ export function logUpdate(
     userAgent = info.userAgent
   }
 
-  logEvent({
-    eventType: 'UPDATE',
-    tableName,
-    recordId,
-    userId,
-    userAgent,
-    metadata
-  })
+  logEvent({ eventType: 'UPDATE', tableName, recordId, userId, userAgent, metadata })
 }
 
 /**
@@ -135,107 +117,53 @@ export function logDelete(
     userAgent = info.userAgent
   }
 
-  logEvent({
-    eventType: 'DELETE',
-    tableName,
-    recordId,
-    userId,
-    userAgent,
-    metadata
-  })
+  logEvent({ eventType: 'DELETE', tableName, recordId, userId, userAgent, metadata })
 }
 
 /**
  * Log a successful LOGIN event
  */
-export function logLogin(
-  userId: string,
-  userAgent?: string,
-  metadata?: any
-): void {
-  logEvent({
-    eventType: 'LOGIN',
-    userId,
-    userAgent,
-    metadata
-  })
+export function logLogin(userId: string, userAgent?: string, metadata?: any): void {
+  logEvent({ eventType: 'LOGIN', userId, userAgent, metadata })
 }
 
 /**
  * Log a failed LOGIN attempt
  * Note: email must be stored in metadata.email for privacy
  */
-export function logLoginFailed(
-  email: string,
-  userAgent?: string,
-  metadata?: any
-): void {
+export function logLoginFailed(email: string, userAgent?: string, metadata?: any): void {
   logEvent({
     eventType: 'LOGIN_FAILED',
     userAgent,
-    metadata: {
-      ...metadata,
-      email
-    }
+    metadata: { ...metadata, email }
   })
 }
 
 /**
  * Log a LOGOUT event
  */
-export function logLogout(
-  userId: string,
-  userAgent?: string,
-  metadata?: any
-): void {
-  logEvent({
-    eventType: 'LOGOUT',
-    userId,
-    userAgent,
-    metadata
-  })
+export function logLogout(userId: string, userAgent?: string, metadata?: any): void {
+  logEvent({ eventType: 'LOGOUT', userId, userAgent, metadata })
 }
 
 /**
  * Log a PASSWORD_RESET event
  */
-export function logPasswordReset(
-  userId: string,
-  userAgent?: string,
-  metadata?: any
-): void {
-  logEvent({
-    eventType: 'PASSWORD_RESET',
-    userId,
-    userAgent,
-    metadata
-  })
+export function logPasswordReset(userId: string, userAgent?: string, metadata?: any): void {
+  logEvent({ eventType: 'PASSWORD_RESET', userId, userAgent, metadata })
 }
 
 /**
  * Log an EMAIL_CHANGE event
  */
-export function logEmailChange(
-  userId: string,
-  userAgent?: string,
-  metadata?: any
-): void {
-  logEvent({
-    eventType: 'EMAIL_CHANGE',
-    userId,
-    userAgent,
-    metadata
-  })
+export function logEmailChange(userId: string, userAgent?: string, metadata?: any): void {
+  logEvent({ eventType: 'EMAIL_CHANGE', userId, userAgent, metadata })
 }
 
 /**
  * Log a registration attempt (for rate limiting by IP)
  */
-export function logRegisterAttempt(
-  ip: string,
-  userAgent?: string,
-  metadata?: any
-): void {
+export function logRegisterAttempt(ip: string, userAgent?: string, metadata?: any): void {
   logEvent({
     eventType: 'REGISTER_ATTEMPT',
     userAgent,
@@ -246,11 +174,7 @@ export function logRegisterAttempt(
 /**
  * Log a password reset request (for rate limiting by email)
  */
-export function logPasswordResetRequest(
-  email: string,
-  userAgent?: string,
-  metadata?: any
-): void {
+export function logPasswordResetRequest(email: string, userAgent?: string, metadata?: any): void {
   logEvent({
     eventType: 'PASSWORD_RESET_REQUEST',
     userAgent,

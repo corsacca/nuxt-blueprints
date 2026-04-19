@@ -1,5 +1,5 @@
 import crypto from 'crypto'
-import { sql } from '../../utils/database'
+import { db } from '../../utils/database'
 import { logPasswordResetRequest } from '../../utils/activity-logger'
 import { sendTemplateEmail } from '../../utils/email'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
@@ -41,35 +41,39 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Check if user exists
-    const users = await sql`
-      SELECT id, email, display_name FROM users WHERE email = ${email.toLowerCase()}
-    `
-
-    const user = users[0]
+    const user = await db
+      .selectFrom('users')
+      .select(['id', 'email', 'display_name'])
+      .where('email', '=', email.toLowerCase())
+      .executeTakeFirst()
 
     // If user doesn't exist, still return success (security measure)
     if (!user) {
       return successResponse
     }
 
-    // Delete any existing unused or expired reset requests for this user
-    await sql`
-      DELETE FROM password_reset_requests
-      WHERE user_id = ${user.id}
-    `
-
     // Generate reset token
     const token = crypto.randomUUID()
     const expires = new Date(Date.now() + 60 * 60 * 1000) // 1 hour from now
 
-    // Create reset request
-    await sql`
-      INSERT INTO password_reset_requests (
-        user_id, token, expires, used
-      ) VALUES (
-        ${user.id}, ${token}, ${expires.toISOString()}, false
-      )
-    `
+    await db.transaction().execute(async (trx) => {
+      // Delete any existing unused or expired reset requests for this user
+      await trx
+        .deleteFrom('password_reset_requests')
+        .where('user_id', '=', user.id)
+        .execute()
+
+      // Create reset request
+      await trx
+        .insertInto('password_reset_requests')
+        .values({
+          user_id: user.id,
+          token,
+          expires: expires.toISOString(),
+          used: false,
+        })
+        .execute()
+    })
 
     // Get base URL from runtime config or construct from headers
     const config = useRuntimeConfig()
@@ -92,9 +96,10 @@ export default defineEventHandler(async (event) => {
 
     // If email failed to send, delete the reset request
     if (!emailSent) {
-      await sql`
-        DELETE FROM password_reset_requests WHERE token = ${token}
-      `
+      await db
+        .deleteFrom('password_reset_requests')
+        .where('token', '=', token)
+        .execute()
       console.error('Failed to send password reset email to:', user.email)
       // Still return success to user to prevent enumeration
     }

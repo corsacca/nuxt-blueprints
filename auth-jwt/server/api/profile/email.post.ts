@@ -1,5 +1,6 @@
 import bcrypt from 'bcrypt'
 import crypto from 'crypto'
+import { sql } from 'kysely'
 
 export default defineEventHandler(async (event) => {
   // Require authentication
@@ -36,18 +37,18 @@ export default defineEventHandler(async (event) => {
   }
 
   // Get current user data including password
-  const userResult = await sql`
-    SELECT email, password FROM users WHERE id = ${user.userId}
-  `
+  const currentUser = await db
+    .selectFrom('users')
+    .select(['email', 'password'])
+    .where('id', '=', user.userId)
+    .executeTakeFirst()
 
-  if (userResult.length === 0) {
+  if (!currentUser) {
     throw createError({
       statusCode: 404,
       statusMessage: 'User not found'
     })
   }
-
-  const currentUser = userResult[0]
 
   // Check if new email is same as current
   if (trimmedEmail === currentUser.email) {
@@ -81,11 +82,13 @@ export default defineEventHandler(async (event) => {
   }
 
   // Check if new email is already taken by another user
-  const existingUser = await sql`
-    SELECT id FROM users WHERE email = ${trimmedEmail}
-  `
+  const existingUser = await db
+    .selectFrom('users')
+    .select('id')
+    .where('email', '=', trimmedEmail)
+    .executeTakeFirst()
 
-  if (existingUser.length > 0) {
+  if (existingUser) {
     throw createError({
       statusCode: 400,
       statusMessage: 'This email address is already in use'
@@ -96,13 +99,15 @@ export default defineEventHandler(async (event) => {
   const emailChangeToken = crypto.randomUUID()
 
   // Store pending email and token
-  await sql`
-    UPDATE users
-    SET pending_email = ${trimmedEmail},
-        email_change_token = ${emailChangeToken},
-        updated = NOW()
-    WHERE id = ${user.userId}
-  `
+  await db
+    .updateTable('users')
+    .set({
+      pending_email: trimmedEmail,
+      email_change_token: emailChangeToken,
+      updated: sql`now()`,
+    })
+    .where('id', '=', user.userId)
+    .execute()
 
   // Get runtime config for email
   const config = useRuntimeConfig()
@@ -144,12 +149,11 @@ export default defineEventHandler(async (event) => {
     console.error('Error sending verification email:', error)
 
     // Clean up pending email change on error
-    await sql`
-      UPDATE users
-      SET pending_email = NULL,
-          email_change_token = NULL
-      WHERE id = ${user.userId}
-    `
+    await db
+      .updateTable('users')
+      .set({ pending_email: null, email_change_token: null })
+      .where('id', '=', user.userId)
+      .execute()
 
     throw createError({
       statusCode: 500,

@@ -1,55 +1,35 @@
+import { Kysely, sql } from 'kysely'
+import { PostgresJSDialect } from 'kysely-postgres-js'
 import postgres from 'postgres'
+import type { Database } from '~/server/database/schema'
 
-let connection: ReturnType<typeof postgres> | null = null
+let _db: Kysely<Database> | null = null
 
-function initConnection() {
-  if (connection) return connection
+function getDb(): Kysely<Database> {
+  if (_db) return _db
 
   const databaseUrl = useRuntimeConfig().databaseUrl || process.env.DATABASE_URL
+  if (!databaseUrl) throw new Error('DATABASE_URL is not set')
 
-  if (!databaseUrl) {
-    console.warn('DATABASE_URL environment variable is not set')
-    return null
-  }
+  const isLocal = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1')
 
-  const isLocalhost = databaseUrl.includes('localhost') || databaseUrl.includes('127.0.0.1')
-
-  connection = postgres(databaseUrl, {
-    ssl: isLocalhost ? false : 'require',
-    max: 10,
-    idle_timeout: 20,
-    connect_timeout: 30,
-    onnotice: () => {},
+  _db = new Kysely<Database>({
+    dialect: new PostgresJSDialect({
+      postgres: postgres(databaseUrl, {
+        ssl: isLocal ? false : 'require',
+        max: 10,
+        idle_timeout: 20,
+        connect_timeout: 30,
+        onnotice: () => {},
+      }),
+    }),
   })
 
-  return connection
+  return _db
 }
 
-function sqlProxy(...args: any[]): any {
-  const connection = initConnection()
-  if (!connection) {
-    throw new Error('Database not configured')
-  }
-  return (connection as any)(...args)
-}
-
-export const sql = new Proxy(sqlProxy, {
-  get(target, prop) {
-    const connection = initConnection()
-    if (!connection) {
-      throw new Error('Database not configured')
-    }
-    return (connection as any)[prop]
-  }
+export const db = new Proxy({} as Kysely<Database>, {
+  get: (_, prop) => (getDb() as any)[prop],
 })
 
-export async function tableExists(tableName: string): Promise<boolean> {
-  const result = await sql`
-    SELECT EXISTS (
-      SELECT FROM information_schema.tables
-      WHERE table_schema = 'public'
-      AND table_name = ${tableName}
-    ) as exists
-  `
-  return result[0]?.exists || false
-}
+export { sql }

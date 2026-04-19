@@ -11,7 +11,8 @@ Google OAuth sign-in via Google Identity Services (GIS). Adds a "Sign in with Go
 ```
 app/composables/useGoogleAuth.ts
 server/api/auth/google.post.ts
-migrations/005_add_google_auth.js
+server/database/schema.ts
+migrations/005_add_google_auth.ts
 ```
 
 ## Package Dependencies
@@ -44,7 +45,11 @@ GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
 
 ## Migrations
 
-- `005_add_google_auth.js` — Adds `google_id` (TEXT UNIQUE) column to users table, makes `password` column nullable for Google-only accounts, adds index on `google_id`
+- `005_add_google_auth.ts` — Adds `google_id` (TEXT UNIQUE) column to users table, makes `password` column nullable for Google-only accounts, adds index on `google_id`
+
+## Database & Types
+
+- `server/database/schema.ts` — Extends `UsersTable` with `google_id` and relaxes `password` to nullable. Merge into the project's consolidated `server/database/schema.ts` during assembly (after core + auth-jwt).
 
 ## Wiring Notes
 
@@ -54,16 +59,20 @@ When this block is included, modify files provided by `auth-jwt` and `core`:
 
 ### `server/api/auth/me.get.ts` — Add `has_password` and `has_google` flags
 
-Change the SELECT query to include password and Google status:
+Change the SELECT to include password and Google status via computed columns:
 
 ```typescript
-const users = await sql`
-  SELECT id, email, display_name, avatar, verified, superadmin, created, updated,
-         password IS NOT NULL as has_password,
-         google_id IS NOT NULL as has_google
-  FROM users
-  WHERE id = ${authUser.userId}
-`
+import { sql } from 'kysely'
+
+const user = await db
+  .selectFrom('users')
+  .select([
+    'id', 'email', 'display_name', 'avatar', 'verified', 'superadmin', 'created', 'updated',
+    sql<boolean>`password IS NOT NULL`.as('has_password'),
+    sql<boolean>`google_id IS NOT NULL`.as('has_google'),
+  ])
+  .where('id', '=', authUser.userId)
+  .executeTakeFirst()
 ```
 
 ---
@@ -73,7 +82,7 @@ const users = await sql`
 Before the `bcrypt.compare()` call, add a null check so Google-only users get a clean 401 instead of a server error:
 
 ```typescript
-// After: const user = users[0]
+// After fetching `user` via db.selectFrom('users')...
 // After the verified check, before bcrypt.compare:
 
 if (!user.password) {
@@ -89,10 +98,16 @@ if (!user.password) {
 After fetching the user's password hash, add a branch for null passwords. Google-only users can set their first password without providing a current one:
 
 ```typescript
-const currentPasswordHash = userResult[0].password
+import { sql } from 'kysely'
+
+const current = await db
+  .selectFrom('users')
+  .select('password')
+  .where('id', '=', user.userId)
+  .executeTakeFirst()
 
 // Google-only user setting their first password
-if (!currentPasswordHash) {
+if (!current?.password) {
   if (!new_password || typeof new_password !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'New password is required' })
   }
@@ -104,9 +119,11 @@ if (!currentPasswordHash) {
   }
 
   const newPasswordHash = await bcrypt.hash(new_password, 12)
-  await sql`
-    UPDATE users SET password = ${newPasswordHash}, updated = NOW() WHERE id = ${user.userId}
-  `
+  await db
+    .updateTable('users')
+    .set({ password: newPasswordHash, updated: sql`now()` })
+    .where('id', '=', user.userId)
+    .execute()
 
   logEvent({
     eventType: 'PASSWORD_CHANGED',
@@ -130,14 +147,12 @@ Also remove the early validation that requires `current_password` — change it 
 After fetching the user's password hash, add a branch for null passwords:
 
 ```typescript
-const currentPasswordHash = userResult[0].password
-
-if (currentPasswordHash) {
+if (current.password) {
   // Existing behavior: verify password
   if (!password || typeof password !== 'string') {
     throw createError({ statusCode: 400, statusMessage: 'Password is required' })
   }
-  const isPasswordValid = await bcrypt.compare(password, currentPasswordHash)
+  const isPasswordValid = await bcrypt.compare(password, current.password)
   if (!isPasswordValid) {
     logEvent({ ... }) // existing failed deletion log
     throw createError({ statusCode: 401, statusMessage: 'Password is incorrect' })
@@ -146,7 +161,7 @@ if (currentPasswordHash) {
 // If no password hash (Google-only user), skip password verification
 ```
 
-Move the existing password validation and bcrypt check inside the `if (currentPasswordHash)` block. The rest of the deletion logic stays unchanged.
+Move the existing password validation and bcrypt check inside the `if (current.password)` block. The rest of the deletion logic stays unchanged.
 
 ---
 

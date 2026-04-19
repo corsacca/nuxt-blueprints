@@ -1,3 +1,5 @@
+import { sql } from 'kysely'
+
 export default defineEventHandler(async (event) => {
   const query = getQuery(event)
   const token = query.token as string
@@ -11,13 +13,11 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Find user with this email change token
-    const users = await sql`
-      SELECT id, email, pending_email, email_change_token
-      FROM users
-      WHERE email_change_token = ${token}
-    `
-
-    const user = users[0]
+    const user = await db
+      .selectFrom('users')
+      .select(['id', 'email', 'pending_email', 'email_change_token'])
+      .where('email_change_token', '=', token)
+      .executeTakeFirst()
 
     if (!user) {
       // Redirect to profile with error message
@@ -33,32 +33,35 @@ export default defineEventHandler(async (event) => {
     const newEmail = user.pending_email
 
     // Check if new email is now taken by someone else (race condition check)
-    const existingUser = await sql`
-      SELECT id FROM users
-      WHERE email = ${newEmail} AND id != ${user.id}
-    `
+    const existingUser = await db
+      .selectFrom('users')
+      .select('id')
+      .where('email', '=', newEmail)
+      .where('id', '!=', user.id)
+      .executeTakeFirst()
 
-    if (existingUser.length > 0) {
+    if (existingUser) {
       // Clean up pending change
-      await sql`
-        UPDATE users
-        SET pending_email = NULL,
-            email_change_token = NULL
-        WHERE id = ${user.id}
-      `
+      await db
+        .updateTable('users')
+        .set({ pending_email: null, email_change_token: null })
+        .where('id', '=', user.id)
+        .execute()
 
       return sendRedirect(event, '/profile?email_change=email_taken')
     }
 
     // Update email and clear pending fields
-    await sql`
-      UPDATE users
-      SET email = ${newEmail},
-          pending_email = NULL,
-          email_change_token = NULL,
-          updated = NOW()
-      WHERE id = ${user.id}
-    `
+    await db
+      .updateTable('users')
+      .set({
+        email: newEmail,
+        pending_email: null,
+        email_change_token: null,
+        updated: sql`now()`,
+      })
+      .where('id', '=', user.id)
+      .execute()
 
     // Log successful email change
     logEvent({

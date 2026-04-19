@@ -1,7 +1,8 @@
 import admin from 'firebase-admin'
 import { randomUUID } from 'crypto'
 import jwt from 'jsonwebtoken'
-import { sql } from '../../utils/database'
+import { sql } from 'kysely'
+import { db } from '../../utils/database'
 import { logLogin, logLoginFailed } from '../../utils/activity-logger'
 import { readBody, getHeader, setCookie } from 'h3'
 import { useRuntimeConfig, createError } from '#imports'
@@ -56,28 +57,31 @@ export default defineEventHandler(async (event) => {
   const { uid: firebaseUid, email, name, picture } = decodedToken
 
   // Look up existing user by firebase_uid first, then by email
-  let user
-  const byFirebaseUid = await sql`
-    SELECT * FROM users WHERE firebase_uid = ${firebaseUid}
-  `
-  user = byFirebaseUid[0]
+  let user = await db
+    .selectFrom('users')
+    .selectAll()
+    .where('firebase_uid', '=', firebaseUid)
+    .executeTakeFirst()
 
-  if (!user) {
-    const byEmail = await sql`
-      SELECT * FROM users WHERE email = ${email}
-    `
-    user = byEmail[0]
+  if (!user && email) {
+    user = await db
+      .selectFrom('users')
+      .selectAll()
+      .where('email', '=', email)
+      .executeTakeFirst()
 
     if (user) {
       // Account linking: existing email/password user signing in with Firebase
-      await sql`
-        UPDATE users
-        SET firebase_uid = ${firebaseUid},
-            verified = true,
-            avatar = CASE WHEN avatar = '' OR avatar IS NULL THEN ${picture || ''} ELSE avatar END,
-            updated = NOW()
-        WHERE id = ${user.id}
-      `
+      await db
+        .updateTable('users')
+        .set({
+          firebase_uid: firebaseUid,
+          verified: true,
+          avatar: sql`CASE WHEN avatar = '' OR avatar IS NULL THEN ${picture || ''} ELSE avatar END`,
+          updated: sql`now()`,
+        })
+        .where('id', '=', user.id)
+        .execute()
       user.firebase_uid = firebaseUid
     }
   }
@@ -89,31 +93,37 @@ export default defineEventHandler(async (event) => {
     const now = new Date().toISOString()
     const displayName = name || email!.split('@')[0]
 
-    await sql`
-      INSERT INTO users (
-        id, created, updated, email, password,
-        verified, superadmin, display_name, avatar,
-        token_key, email_visibility, firebase_uid
-      ) VALUES (
-        ${userId}, ${now}, ${now}, ${email}, ${null},
-        true, false, ${displayName}, ${picture || ''},
-        ${tokenKey}, false, ${firebaseUid}
-      )
-    `
+    await db
+      .insertInto('users')
+      .values({
+        id: userId,
+        created: now,
+        updated: now,
+        email: email!,
+        password: null,
+        verified: true,
+        superadmin: false,
+        display_name: displayName,
+        avatar: picture || '',
+        token_key: tokenKey,
+        email_visibility: false,
+        firebase_uid: firebaseUid,
+      })
+      .execute()
 
     user = {
       id: userId,
-      email,
+      email: email!,
       display_name: displayName,
       avatar: picture || '',
       verified: true,
       superadmin: false,
-    }
+    } as any
   }
 
   // Generate JWT token
   const token = jwt.sign(
-    { userId: user.id, email: user.email, display_name: user.display_name },
+    { userId: user!.id, email: user!.email, display_name: user!.display_name },
     config.jwtSecret,
     { expiresIn: '120d' }
   )
@@ -127,17 +137,17 @@ export default defineEventHandler(async (event) => {
   })
 
   // Log successful login
-  logLogin(user.id, userAgent, { method: 'firebase' })
+  logLogin(user!.id, userAgent, { method: 'firebase' })
 
   return {
     success: true,
     user: {
-      id: user.id,
-      email: user.email,
-      display_name: user.display_name,
-      avatar: user.avatar,
-      verified: user.verified,
-      superadmin: user.superadmin,
+      id: user!.id,
+      email: user!.email,
+      display_name: user!.display_name,
+      avatar: user!.avatar,
+      verified: user!.verified,
+      superadmin: user!.superadmin,
     }
   }
 })
