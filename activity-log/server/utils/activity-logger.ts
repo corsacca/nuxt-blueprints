@@ -71,7 +71,14 @@ export function logCreate(
     userAgent = info.userAgent
   }
 
-  logEvent({ eventType: 'CREATE', tableName, recordId, userId, userAgent, metadata })
+  logEvent({
+    eventType: 'CREATE',
+    tableName,
+    recordId,
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
@@ -94,7 +101,14 @@ export function logUpdate(
     userAgent = info.userAgent
   }
 
-  logEvent({ eventType: 'UPDATE', tableName, recordId, userId, userAgent, metadata })
+  logEvent({
+    eventType: 'UPDATE',
+    tableName,
+    recordId,
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
@@ -117,53 +131,107 @@ export function logDelete(
     userAgent = info.userAgent
   }
 
-  logEvent({ eventType: 'DELETE', tableName, recordId, userId, userAgent, metadata })
+  logEvent({
+    eventType: 'DELETE',
+    tableName,
+    recordId,
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
  * Log a successful LOGIN event
  */
-export function logLogin(userId: string, userAgent?: string, metadata?: any): void {
-  logEvent({ eventType: 'LOGIN', userId, userAgent, metadata })
+export function logLogin(
+  userId: string,
+  userAgent?: string,
+  metadata?: any
+): void {
+  logEvent({
+    eventType: 'LOGIN',
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
  * Log a failed LOGIN attempt
  * Note: email must be stored in metadata.email for privacy
  */
-export function logLoginFailed(email: string, userAgent?: string, metadata?: any): void {
+export function logLoginFailed(
+  email: string,
+  userAgent?: string,
+  metadata?: any
+): void {
   logEvent({
     eventType: 'LOGIN_FAILED',
     userAgent,
-    metadata: { ...metadata, email }
+    metadata: {
+      ...metadata,
+      email
+    }
   })
 }
 
 /**
  * Log a LOGOUT event
  */
-export function logLogout(userId: string, userAgent?: string, metadata?: any): void {
-  logEvent({ eventType: 'LOGOUT', userId, userAgent, metadata })
+export function logLogout(
+  userId: string,
+  userAgent?: string,
+  metadata?: any
+): void {
+  logEvent({
+    eventType: 'LOGOUT',
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
  * Log a PASSWORD_RESET event
  */
-export function logPasswordReset(userId: string, userAgent?: string, metadata?: any): void {
-  logEvent({ eventType: 'PASSWORD_RESET', userId, userAgent, metadata })
+export function logPasswordReset(
+  userId: string,
+  userAgent?: string,
+  metadata?: any
+): void {
+  logEvent({
+    eventType: 'PASSWORD_RESET',
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
  * Log an EMAIL_CHANGE event
  */
-export function logEmailChange(userId: string, userAgent?: string, metadata?: any): void {
-  logEvent({ eventType: 'EMAIL_CHANGE', userId, userAgent, metadata })
+export function logEmailChange(
+  userId: string,
+  userAgent?: string,
+  metadata?: any
+): void {
+  logEvent({
+    eventType: 'EMAIL_CHANGE',
+    userId,
+    userAgent,
+    metadata
+  })
 }
 
 /**
  * Log a registration attempt (for rate limiting by IP)
  */
-export function logRegisterAttempt(ip: string, userAgent?: string, metadata?: any): void {
+export function logRegisterAttempt(
+  ip: string,
+  userAgent?: string,
+  metadata?: any
+): void {
   logEvent({
     eventType: 'REGISTER_ATTEMPT',
     userAgent,
@@ -174,7 +242,11 @@ export function logRegisterAttempt(ip: string, userAgent?: string, metadata?: an
 /**
  * Log a password reset request (for rate limiting by email)
  */
-export function logPasswordResetRequest(email: string, userAgent?: string, metadata?: any): void {
+export function logPasswordResetRequest(
+  email: string,
+  userAgent?: string,
+  metadata?: any
+): void {
   logEvent({
     eventType: 'PASSWORD_RESET_REQUEST',
     userAgent,
