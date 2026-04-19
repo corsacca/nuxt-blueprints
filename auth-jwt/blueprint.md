@@ -77,6 +77,16 @@ JWT_SECRET=your-super-secret-jwt-key-change-this
 
 - `server/database/schema.ts` — Extends core's `UsersTable` with the auth columns and adds `PasswordResetRequestsTable`. Merge into the project's consolidated `server/database/schema.ts` during assembly.
 
+## First-User Bootstrap
+
+The first account registered on a fresh install (when the `users` table is empty) is automatically promoted by `register.post.ts`:
+
+- `verified: true` — skips email verification
+- `superadmin: true` — administrative access
+- Auto-logged-in — the response sets the `auth-token` cookie and `useAuth.register()` redirects to `/dashboard` instead of showing the "check your email" message
+
+The count-check, user insert, and audit log (`first_user_promoted`) all run inside a single transaction under a Postgres advisory lock (`pg_advisory_xact_lock`), so concurrent registrations at an empty DB can't both be promoted.
+
 ## Wiring Notes
 
 When this block is included, modify the files provided by the `core` block:

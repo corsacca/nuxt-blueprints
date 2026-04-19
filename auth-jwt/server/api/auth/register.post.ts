@@ -1,11 +1,16 @@
 import bcrypt from 'bcrypt'
+import jwt from 'jsonwebtoken'
 import { randomUUID } from 'crypto'
-import { db } from '../../utils/database'
-import { logRegisterAttempt } from '../../utils/activity-logger'
+import { db, sql } from '../../utils/database'
+import { logRegisterAttempt, logEvent } from '../../utils/activity-logger'
 import { sendTemplateEmail } from '../../utils/email'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
-import { readBody, getHeader, setResponseHeader, getRequestURL } from 'h3'
-import { createError } from '#imports'
+import { readBody, getHeader, setResponseHeader, getRequestURL, setCookie } from 'h3'
+import { useRuntimeConfig, createError } from '#imports'
+
+// Advisory-lock key used to serialize concurrent registrations so the
+// first-user count check and insert can't interleave (ASCII 'reg1').
+const REGISTRATION_LOCK_KEY = 1919248689
 
 export default defineEventHandler(async (event) => {
   const { email, password, display_name } = await readBody(event)
@@ -35,17 +40,6 @@ export default defineEventHandler(async (event) => {
   // Log this registration attempt
   logRegisterAttempt(clientIp, userAgent)
 
-  // Check if user already exists
-  const existingUser = await db
-    .selectFrom('users')
-    .select('id')
-    .where('email', '=', email)
-    .executeTakeFirst()
-
-  if (existingUser) {
-    throw createError({ statusCode: 409, statusMessage: 'User with this email already exists' })
-  }
-
   // Hash password
   const hashedPassword = await bcrypt.hash(password, 12)
 
@@ -54,9 +48,33 @@ export default defineEventHandler(async (event) => {
   const tokenKey = randomUUID()
   const now = new Date().toISOString()
 
-  try {
-    // Create user (initially unverified)
-    await db
+  // First-user check + insert run atomically inside a transaction, with a
+  // session-level advisory lock to serialize concurrent registrations. The
+  // activity-log insert also rides on this transaction so the "who became
+  // superadmin" audit row commits with the user row.
+  const { isFirstUser } = await db.transaction().execute(async (trx) => {
+    await sql`SELECT pg_advisory_xact_lock(${sql.lit(REGISTRATION_LOCK_KEY)})`.execute(trx)
+
+    // Check if user already exists
+    const existingUser = await trx
+      .selectFrom('users')
+      .select('id')
+      .where('email', '=', email)
+      .executeTakeFirst()
+
+    if (existingUser) {
+      throw createError({ statusCode: 409, statusMessage: 'User with this email already exists' })
+    }
+
+    const countRow = await trx
+      .selectFrom('users')
+      .select(eb => eb.fn.count<string>('id').as('count'))
+      .executeTakeFirst()
+
+    const firstUser = Number(countRow?.count ?? 0) === 0
+
+    // Create user (first user is auto-promoted; everyone else starts unverified)
+    await trx
       .insertInto('users')
       .values({
         id: userId,
@@ -64,18 +82,63 @@ export default defineEventHandler(async (event) => {
         updated: now,
         email,
         password: hashedPassword,
-        verified: false,
-        superadmin: false,
+        verified: firstUser,
+        superadmin: firstUser,
         display_name,
         avatar: '',
         token_key: tokenKey,
       })
       .execute()
 
-    // Send verification email
-    const baseUrl = getRequestURL(event).origin
-    const verificationUrl = `${baseUrl}/api/auth/verify?token=${tokenKey}`
+    if (firstUser) {
+      await logEvent({
+        eventType: 'first_user_promoted',
+        userId,
+        userAgent,
+        metadata: { email }
+      }, trx)
+    }
 
+    return { isFirstUser: firstUser }
+  })
+
+  // First user gets auto-logged-in — no verification email, JWT cookie set directly.
+  if (isFirstUser) {
+    const token = jwt.sign(
+      { userId, email, display_name },
+      useRuntimeConfig().jwtSecret,
+      { expiresIn: '120d' }
+    )
+
+    setCookie(event, 'auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 120
+    })
+
+    return {
+      success: true,
+      autoLoggedIn: true,
+      requiresVerification: false,
+      user: {
+        id: userId,
+        email,
+        display_name,
+        avatar: '',
+        verified: true,
+        superadmin: true
+      }
+    }
+  }
+
+  // Normal registration: send verification email. Any failure is logged and
+  // swallowed — the account is already committed, so turning an email failure
+  // into a 500 would trap the user with an account they can't re-register.
+  const baseUrl = getRequestURL(event).origin
+  const verificationUrl = `${baseUrl}/api/auth/verify?token=${tokenKey}`
+
+  try {
     const emailSent = await sendTemplateEmail({
       to: email,
       template: 'verification',
@@ -86,18 +149,16 @@ export default defineEventHandler(async (event) => {
     })
 
     if (!emailSent) {
-      // If email fails, we should still create the user but log the error
       console.error('Failed to send verification email to:', email)
-      // Don't throw error here as user was created successfully
     }
+  } catch (err) {
+    console.error('Error sending verification email:', err)
+  }
 
-    return {
-      success: true,
-      message: 'Registration successful! Please check your email to verify your account.',
-      requiresVerification: true
-    }
-  } catch (error) {
-    console.error('Registration error:', error)
-    throw createError({ statusCode: 500, statusMessage: 'Failed to create user' })
+  return {
+    success: true,
+    autoLoggedIn: false,
+    requiresVerification: true,
+    message: 'Registration successful! Please check your email to verify your account.'
   }
 })

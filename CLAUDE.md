@@ -143,3 +143,14 @@ Create a tracking file in the project root:
 ## Step 10: Install and verify
 
 Run `npm install` and `npm run dev` to verify the project starts correctly.
+
+## Step 11: Brief the user on next steps
+
+After the server boots successfully, tell the user what to do next:
+
+- Copy `.env.example` to `.env` and fill in real values before relying on any provider (database, email, S3, etc.)
+- **If `auth-jwt` is included**, include this verbatim:
+
+  > When you register your first account, you'll be promoted to admin automatically and logged straight in — no email verification required. Subsequent registrations follow the normal email-verification flow.
+
+  This reflects the first-user bootstrap behavior in `auth-jwt/server/api/auth/register.post.ts`: the very first user on an empty `users` table is inserted with `verified: true, superadmin: true` and receives an `auth-token` cookie immediately.

@@ -66,9 +66,14 @@ async function handleRegister() {
   loading.value = true
 
   try {
-    const result = await register(state.email, state.password, state.display_name)
+    const result = await register(state.email, state.password, state.display_name) as { success: boolean; message?: string; autoLoggedIn?: boolean }
 
     if (result.success) {
+      // First user is auto-logged-in by the server; skip the "check your email" UI.
+      if (result.autoLoggedIn) {
+        await navigateTo('/dashboard', { replace: true })
+        return
+      }
       success.value = true
     } else {
       error.value = result.message || 'Registration failed. Please try again.'

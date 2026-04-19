@@ -1,6 +1,8 @@
 import { db } from './database'
 import crypto from 'crypto'
 import type { H3Event } from 'h3'
+import type { Kysely } from 'kysely'
+import type { Database } from '~/server/database/schema'
 import { getAuthUser } from './auth'
 
 interface LogEventOptions {
@@ -13,11 +15,19 @@ interface LogEventOptions {
 }
 
 /**
- * Core function to log an activity event
+ * Core function to log an activity event.
+ *
+ * Accepts an optional `executor` so the insert can run inside a caller's
+ * transaction — useful when the audit row must commit atomically with the
+ * operation it describes (e.g. promoting the first user to superadmin).
+ * Defaults to the global db for fire-and-forget use from helpers.
  */
-export async function logEvent(options: LogEventOptions): Promise<void> {
+export async function logEvent(
+  options: LogEventOptions,
+  executor: Kysely<Database> = db
+): Promise<void> {
   try {
-    await db
+    await executor
       .insertInto('activity_logs')
       .values({
         id: crypto.randomUUID(),

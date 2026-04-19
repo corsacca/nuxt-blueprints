@@ -87,13 +87,19 @@ export const useAuth = () => {
       const response = await $fetch('/api/auth/register', {
         method: 'POST',
         body: { email, password, display_name }
-      }) as { success: boolean; message?: string; requiresVerification?: boolean }
+      }) as { success: boolean; message?: string; requiresVerification?: boolean; autoLoggedIn?: boolean; user?: any }
+
+      // First-ever user is promoted server-side and arrives already logged in.
+      if (response.autoLoggedIn && response.user) {
+        user.value = response.user
+        saveToCache(response.user)
+      }
 
       return response
     } catch (error: any) {
       return {
         success: false,
-        message: error.data?.message || 'Registration failed'
+        message: error.data?.statusMessage || error.data?.message || 'Registration failed'
       }
     }
   }

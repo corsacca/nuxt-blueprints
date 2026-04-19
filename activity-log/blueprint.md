@@ -30,4 +30,6 @@ None beyond what `core` provides.
 
 The activity logger provides `logEvent()`, `logCreate()`, `logUpdate()`, `logDelete()` and auth-specific helpers like `logLogin()`, `logLoginFailed()`, `logLogout()`, `logPasswordReset()`, etc.
 
+`logEvent(options, executor?)` accepts an optional Kysely `executor` — pass a transaction (`trx`) to make the audit row commit atomically with the caller's work. Defaults to the global `db` for fire-and-forget use from the other helpers.
+
 The `auth-jwt` block uses these functions in its API routes. If using activity-log without auth-jwt, the auth-specific helpers (logLogin, logLoginFailed, etc.) won't be needed — they're included for convenience.
