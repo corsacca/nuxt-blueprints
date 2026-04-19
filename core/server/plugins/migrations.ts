@@ -4,6 +4,12 @@ import * as path from 'path'
 import { db } from '~/server/utils/database'
 
 export default defineNitroPlugin(async () => {
+  const databaseUrl = useRuntimeConfig().databaseUrl || process.env.DATABASE_URL
+  if (!databaseUrl) {
+    console.warn('DATABASE_URL not set, skipping migrations')
+    return
+  }
+
   const migrator = new Migrator({
     db,
     provider: new FileMigrationProvider({
@@ -12,6 +18,20 @@ export default defineNitroPlugin(async () => {
       migrationFolder: path.join(process.cwd(), 'migrations'),
     }),
   })
+
+  // Identify pending migrations so we can announce them before execution
+  const all = await migrator.getMigrations()
+  const pending = all.filter(m => !m.executedAt)
+
+  if (pending.length === 0) {
+    console.log('Migrations already up-to-date')
+    return
+  }
+
+  console.log(`Running ${pending.length} pending migration(s)...`)
+  for (const m of pending) {
+    console.log(`  Migration: ${m.name}`)
+  }
 
   const { error, results } = await migrator.migrateToLatest()
 
@@ -24,4 +44,6 @@ export default defineNitroPlugin(async () => {
     console.error('Migration failed:', error)
     throw error
   }
+
+  console.log('Migrations complete')
 })
