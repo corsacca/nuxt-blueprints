@@ -6,7 +6,6 @@ export interface UsersTable extends BaseUsersTable {
   verified: Generated<boolean>
   superadmin: Generated<boolean>
   token_key: Generated<string>
-  email_visibility: Generated<boolean>
   pending_email: string | null
   email_change_token: string | null
 }

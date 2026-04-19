@@ -69,7 +69,6 @@ export default defineEventHandler(async (event) => {
         display_name,
         avatar: '',
         token_key: tokenKey,
-        email_visibility: false,
       })
       .execute()
 

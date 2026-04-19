@@ -70,7 +70,7 @@ JWT_SECRET=your-super-secret-jwt-key-change-this
 
 ## Migrations
 
-- `002_add_auth_fields.ts` — Adds password, verified, superadmin, token_key, email_visibility, pending_email, email_change_token columns to the users table
+- `002_add_auth_fields.ts` — Adds password, verified, superadmin, token_key, pending_email, email_change_token columns to the users table
 - `003_create_password_reset_table.ts` — Creates the password_reset_requests table
 
 ## Database & Types

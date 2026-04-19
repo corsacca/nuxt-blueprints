@@ -106,7 +106,6 @@ export default defineEventHandler(async (event) => {
         display_name: displayName,
         avatar: picture || '',
         token_key: tokenKey,
-        email_visibility: false,
         firebase_uid: firebaseUid,
       })
       .execute()
