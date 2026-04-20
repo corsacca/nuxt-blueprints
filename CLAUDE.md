@@ -18,6 +18,7 @@ Parse the user's request to determine which blocks they want. Map casual languag
 - "admin section" / "admin dashboard" / "admin area" → `admin`
 - "user management" / "admin users" / "manage users" → `user-management`
 - "roles" / "permissions" / "RBAC" → already baked into `auth-jwt`. For the assignment UI, include `user-management` (which pulls in `admin`)
+- "custom roles" / "runtime roles" / "DB-backed roles" / "editable roles" → `custom-roles`
 - "kitchen sink" / "component showcase" → `kitchen-sink`
 
 When copying files from a choice group block, also copy files from the group's `shared` directory (declared in manifest.json). For example, `email/mailgun` also needs files from `email/shared/`.
@@ -122,6 +123,7 @@ Each blueprint that touches the database ships a `server/database/schema.ts` fra
    - `auth-google` adds `google_id` to `UsersTable` and relaxes `password` to nullable
    - `auth-firebase` adds `firebase_uid` to `UsersTable` and relaxes `password` to nullable
    - `admin` and `user-management` ship no schema fragments — they layer logic on top of the `roles` column already provided by `auth-jwt`
+   - `custom-roles` appends `custom_roles` table to the `Database` interface. Also replaces `auth-jwt`'s `server/utils/rbac.ts` with a version that falls back to `custom_roles` lookups, and replaces `user-management`'s `app/pages/admin/roles.vue` + `app/pages/admin/users.vue` with extended versions that include custom-role UI. File overwrites happen automatically via `cp` — just make sure `custom-roles` is processed after `auth-jwt` and `user-management` in dependency order.
 
 The result is a single `server/database/schema.ts` file in the project with one consolidated `Database` interface covering every selected blueprint's tables and columns. The Kysely query builder uses this type for autocomplete and compile-time type checking across all query sites.
 
@@ -170,4 +172,8 @@ After the server boots successfully, tell the user what to do next:
 
 - **If `user-management` is included**, also include this verbatim:
 
-  > Visit `/admin/users` to assign roles to other users, or `/admin/roles` to see what each role grants. Roles and permissions live in `app/utils/role-definitions.ts` and `app/utils/permissions.ts` — edit those files to customize.
+  > Visit `/admin/users` to assign roles to other users, or `/admin/roles` to see what each role grants. Roles and permissions live in `app/utils/role-definitions.ts` and `app/utils/permissions.ts` — edit those files to customize. The `admin.access` permission is required to reach `/admin`; specific pages and actions require their own permissions (e.g. `users.view`, `users.manage`, `roles.view`, `roles.manage`). Assigning a role requires you to already hold every permission that role grants (subset delegation).
+
+- **If `custom-roles` is included**, also include this verbatim:
+
+  > You can also create custom roles at runtime via the "Create role" button on `/admin/roles`. Custom roles live in the `custom_roles` database table and resolve the same way as static ones — any user's `roles` array can contain either. Custom role names cannot collide with static role names (`admin`, `member`). Deleting a custom role leaves users with that role name in their array; they'll silently resolve to no permissions until reassigned.

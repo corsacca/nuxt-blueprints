@@ -71,6 +71,12 @@
       "path": "user-management",
       "dependencies": ["core", "auth-jwt", "activity-log", "admin"]
     },
+    "custom-roles": {
+      "type": "optional",
+      "description": "DB-backed custom roles: admins can create/edit/delete roles at runtime with the same permission registry. Extends /admin/roles with a Custom section and the user role editor with custom role entries",
+      "path": "custom-roles",
+      "dependencies": ["core", "auth-jwt", "activity-log", "admin", "user-management"]
+    },
     "rate-limiting/db": {
       "type": "choice",
       "choiceGroup": "rate-limiting",

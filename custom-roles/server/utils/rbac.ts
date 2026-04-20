@@ -15,16 +15,34 @@ export async function getUserRoles(userId: string): Promise<string[]> {
 }
 
 // Resolves a list of role names to the union of permissions they grant.
-// Baseline: static definitions only. The optional `custom-roles` block ships
-// a replacement of this file that also falls back to the `custom_roles` table
-// for names that aren't statically defined.
+// Static definitions win; names that aren't static fall back to the DB-backed
+// `custom_roles` table. Unknown names silently contribute no permissions.
 export async function getRolePermissions(roleNames: readonly string[]): Promise<Set<Permission>> {
+  if (roleNames.length === 0) return new Set()
+
   const set = new Set<Permission>()
+  const unknownNames: string[] = []
+
   for (const roleName of roleNames) {
     const staticRole = getStaticRole(roleName)
-    if (!staticRole) continue
-    for (const perm of staticRole.permissions) set.add(perm)
+    if (staticRole) {
+      for (const perm of staticRole.permissions) set.add(perm)
+    } else {
+      unknownNames.push(roleName)
+    }
   }
+
+  if (unknownNames.length > 0) {
+    const customRows = await db
+      .selectFrom('custom_roles')
+      .select('permissions')
+      .where('name', 'in', unknownNames)
+      .execute()
+    for (const row of customRows) {
+      for (const perm of row.permissions) set.add(perm as Permission)
+    }
+  }
+
   return set
 }
 
@@ -61,12 +79,22 @@ export async function requirePermission(event: H3Event, permission: Permission) 
   return authUser
 }
 
-// Validates that every entry in `roles` is a known role name.
-// v1: only static roles are known. The optional custom-roles block extends
-// this to also consult the `custom_roles` table.
+// Validates that every entry in `roles` is a known role name. Checks static
+// definitions first, then the `custom_roles` table for any remaining names.
 export async function validateRoleNames(roles: string[]): Promise<{ valid: boolean; unknown: string[] }> {
-  const known = new Set<string>(STATIC_ROLE_NAMES)
-  const unknown = roles.filter(r => !known.has(r))
+  const staticKnown = new Set<string>(STATIC_ROLE_NAMES)
+  const unknownAfterStatic = roles.filter(r => !staticKnown.has(r))
+  if (unknownAfterStatic.length === 0) {
+    return { valid: true, unknown: [] }
+  }
+
+  const customRows = await db
+    .selectFrom('custom_roles')
+    .select('name')
+    .where('name', 'in', unknownAfterStatic)
+    .execute()
+  const customKnown = new Set(customRows.map(r => r.name))
+  const unknown = unknownAfterStatic.filter(r => !customKnown.has(r))
   return { valid: unknown.length === 0, unknown }
 }
 

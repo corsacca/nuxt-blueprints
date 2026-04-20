@@ -1,12 +1,12 @@
 import { getQuery } from 'h3'
 import { db, sql } from '../../utils/database'
-import { requireRole } from '../../utils/rbac'
+import { requirePermission } from '../../utils/rbac'
 
 const SORTABLE_COLUMNS = ['display_name', 'email', 'verified', 'created', 'last_login'] as const
 type SortColumn = typeof SORTABLE_COLUMNS[number]
 
 export default defineEventHandler(async (event) => {
-  await requireRole(event, 'admin')
+  await requirePermission(event, 'users.view')
 
   const query = getQuery(event)
 

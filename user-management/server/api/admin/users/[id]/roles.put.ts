@@ -1,10 +1,15 @@
 import { readBody, getRouterParam, getHeader } from 'h3'
 import { db, sql } from '../../../../utils/database'
-import { requireRole, validateRoleNames } from '../../../../utils/rbac'
+import {
+  requirePermission,
+  validateRoleNames,
+  getRolePermissions,
+  getUserPermissions
+} from '../../../../utils/rbac'
 import { logEvent } from '../../../../utils/activity-logger'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requireRole(event, 'admin')
+  const admin = await requirePermission(event, 'users.manage')
 
   const id = getRouterParam(event, 'id')
   if (!id) {
@@ -45,6 +50,22 @@ export default defineEventHandler(async (event) => {
 
   if (added.length === 0 && removed.length === 0) {
     return { user: { id: existing.id, roles: prior } }
+  }
+
+  // Subset delegation: the assigner can only add/remove roles whose permissions
+  // they themselves hold. Prevents users with `users.manage` from escalating
+  // anyone (including themselves) into permissions they don't have.
+  const deltaRoleNames = Array.from(new Set([...added, ...removed]))
+  const [assignerPerms, deltaPerms] = await Promise.all([
+    getUserPermissions(admin.userId),
+    getRolePermissions(deltaRoleNames)
+  ])
+  const missing = [...deltaPerms].filter(p => !assignerPerms.has(p))
+  if (missing.length > 0) {
+    throw createError({
+      statusCode: 403,
+      statusMessage: `Cannot assign or revoke roles granting permissions you don't hold: ${missing.join(', ')}`
+    })
   }
 
   // Prevent removing the last admin in the system.

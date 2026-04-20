@@ -185,10 +185,27 @@ Admin UI for managing users.
 **Provides:**
 - `/admin/users` — paginated users list with search, sort, slideover for editing display name, assigning roles, and deleting
 - `/admin/roles` — accordion view of every role with per-permission granted/not-granted indicators
-- Admin API routes: `GET /api/admin/users`, `PATCH /api/admin/users/[id]`, `DELETE /api/admin/users/[id]`, `PUT /api/admin/users/[id]/roles` — all `requireRole('admin')`-gated and audit-logged. Refuses to delete the caller or the last admin.
-- Wiring note: adds "Users" + "Roles" nav entries to the admin layout
+- Admin API routes: `GET /api/admin/users` (`users.view`), `PATCH /api/admin/users/[id]` + `DELETE /api/admin/users/[id]` (`users.manage`), `PUT /api/admin/users/[id]/roles` (`users.manage` + **subset delegation** — you can only assign roles whose permissions are a subset of your own). Refuses to delete the caller or the last admin. All audit-logged.
+- UI rules: row clicks on `/admin/users` are disabled for users without `users.manage`; unassignable roles in the role editor show a disabled checkbox with a tooltip listing the missing permissions
+- Wiring note: adds "Users" + "Roles" nav entries to the admin layout (each hidden if the viewer lacks the corresponding `view` permission)
 
 **Depends on:** `core`, `auth-jwt`, `activity-log`, `admin`
+
+---
+
+### `custom-roles` — Optional
+
+DB-backed custom roles extending the baseline RBAC.
+
+**Provides:**
+- `custom_roles` table (`id`, `name UNIQUE`, `description`, `permissions TEXT[]`) via migration
+- Admin API: `GET / POST /api/admin/custom-roles` (`roles.view` / `roles.manage`), `PUT / DELETE /api/admin/custom-roles/[id]` (`roles.manage`). All audit-logged.
+- Replacement `app/utils/rbac.ts` with `getRolePermissions` / `validateRoleNames` falling back to the `custom_roles` table
+- Replacement `/admin/roles` page — accordion split into Built-in and Custom sections, with a "Create role" button and inline edit/delete modals (permission toggles grouped by resource)
+- Replacement `/admin/users` page — role editor now lists custom roles alongside static with a "Custom" badge
+- Name-collision guard: custom role names cannot match any static role (`admin`, `member`)
+
+**Depends on:** `core`, `auth-jwt`, `activity-log`, `admin`, `user-management`
 
 ---
 

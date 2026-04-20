@@ -97,11 +97,14 @@ The count-check, user insert, and audit log (`first_user_promoted`) all run insi
 
 This block ships a minimal but fully-wired RBAC foundation. Consumer projects own and edit these files freely:
 
-- **`app/utils/permissions.ts`** — central `PERMISSIONS` constant + optional `PERMISSION_META` with human-readable titles/descriptions. Seed contents: `users.view`, `users.manage`, `roles.view` (consumed by the optional `admin` / `user-management` blocks if installed).
+- **`app/utils/permissions.ts`** — central `PERMISSIONS` constant + optional `PERMISSION_META` with human-readable titles/descriptions. Seed contents:
+  - `admin.access` — gate for entering `/admin`
+  - `users.view` / `users.manage` — list + edit users
+  - `roles.view` / `roles.manage` — view + create/edit/delete roles
 - **`app/utils/role-definitions.ts`** — static `ROLES` map. Seed entries:
   - `admin` — every permission in the registry
   - `member` — no permissions (assigned to non-first registrations by default)
-- **`server/utils/rbac.ts`** — resolver + guards: `getUserRoles`, `getUserPermissions`, `userHasRole`, `userHasPermission`, `requireRole(event, 'admin')`, `requirePermission(event, 'x.y')`, `validateRoleNames`.
+- **`server/utils/rbac.ts`** — resolver + guards: `getUserRoles`, `getRolePermissions(roleNames)`, `getUserPermissions(userId)`, `userHasRole`, `userHasPermission`, `requireRole(event, 'admin')`, `requirePermission(event, 'x.y')`, `validateRoleNames`. `getRolePermissions` is split out so callers (e.g. user-management's subset-delegation check) can resolve role-name lists without hitting the DB for a user lookup first.
 - **`app/composables/usePermissions.ts`** — client helpers: `hasRole(name)`, `hasPermission(name)`, `isAdmin`.
 
 `GET /api/auth/me` and `POST /api/auth/login` both return the user's resolved `permissions: string[]` alongside their `roles: string[]`, so client guards work without additional roundtrips.

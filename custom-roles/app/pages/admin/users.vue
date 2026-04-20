@@ -25,16 +25,30 @@ interface AssignableRole {
   permissions: string[]
 }
 
+interface CustomRolesResponse {
+  roles: { id: string; name: string; description: string; permissions: string[] }[]
+}
+
 const staticRoles = Object.values(ROLES) as RoleDefinition[]
 
-const availableRoles = computed<AssignableRole[]>(() =>
-  staticRoles.map(r => ({
+const { data: customRolesData } = await useFetch<CustomRolesResponse>('/api/admin/custom-roles', {
+  default: () => ({ roles: [] })
+})
+
+const availableRoles = computed<AssignableRole[]>(() => [
+  ...staticRoles.map(r => ({
     name: r.name,
     description: r.description,
     source: 'static' as const,
     permissions: [...r.permissions]
+  })),
+  ...(customRolesData.value?.roles ?? []).map(r => ({
+    name: r.name,
+    description: r.description,
+    source: 'custom' as const,
+    permissions: [...r.permissions]
   }))
-)
+])
 
 const { permissions: myPermissions, hasPermission } = usePermissions()
 
@@ -587,6 +601,14 @@ const handleDelete = async () => {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium">{{ role.name }}</span>
+                    <UBadge
+                      v-if="role.source === 'custom'"
+                      color="neutral"
+                      variant="subtle"
+                      size="sm"
+                    >
+                      Custom
+                    </UBadge>
                     <UBadge
                       v-if="!canAssignRole(role)"
                       color="warning"
