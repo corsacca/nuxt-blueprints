@@ -33,17 +33,15 @@ These files already exist from the ui template. Modify them — don't replace th
 
 ### `app/assets/css/main.css`
 
-Add the `@source inline(...)` directives after the existing imports. These ensure Nuxt UI CSS variable utilities are generated correctly:
+Add a base-layer rule so interactive buttons default to a pointer cursor (Tailwind v4 otherwise leaves them as `default`):
 
 ```css
-@source inline("{hover:,}text-(--ui-text)");
-@source inline("{hover:,}text-(--ui-text-muted)");
-@source inline("{hover:,}text-(--ui-text-dimmed)");
-@source inline("{hover:,}text-(--ui-text-toned)");
-@source inline("{hover:,}text-(--ui-text-highlighted)");
-@source inline("{hover:,}text-(--ui-text-inverted)");
-@source inline("bg-(--ui-bg)");
-@source inline("border-(--ui-border)");
+@layer base {
+  button:not(:disabled),
+  [role="button"]:not(:disabled) {
+    cursor: pointer;
+  }
+}
 ```
 
 ### `nuxt.config.ts`
