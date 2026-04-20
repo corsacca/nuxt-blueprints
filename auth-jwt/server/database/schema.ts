@@ -4,7 +4,7 @@ import type { Database as BaseDatabase, UsersTable as BaseUsersTable } from '~/s
 export interface UsersTable extends BaseUsersTable {
   password: Generated<string>
   verified: Generated<boolean>
-  superadmin: Generated<boolean>
+  roles: Generated<string[]>
   token_key: Generated<string>
   pending_email: string | null
   email_change_token: string | null

@@ -92,7 +92,7 @@ import { sql } from 'kysely'
 const user = await db
   .selectFrom('users')
   .select([
-    'id', 'email', 'display_name', 'avatar', 'verified', 'superadmin', 'created', 'updated',
+    'id', 'email', 'display_name', 'avatar', 'verified', 'roles', 'created', 'updated',
     sql<boolean>`password IS NOT NULL`.as('has_password'),
     sql<boolean>`firebase_uid IS NOT NULL`.as('has_firebase'),
   ])

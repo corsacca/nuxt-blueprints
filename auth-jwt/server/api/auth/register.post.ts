@@ -7,6 +7,7 @@ import { sendTemplateEmail } from '../../utils/email'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
 import { readBody, getHeader, setResponseHeader, getRequestURL, setCookie } from 'h3'
 import { useRuntimeConfig, createError } from '#imports'
+import { ROLES } from '~~/app/utils/role-definitions'
 
 // Advisory-lock key used to serialize concurrent registrations so the
 // first-user count check and insert can't interleave (ASCII 'reg1').
@@ -50,8 +51,8 @@ export default defineEventHandler(async (event) => {
 
   // First-user check + insert run atomically inside a transaction, with a
   // session-level advisory lock to serialize concurrent registrations. The
-  // activity-log insert also rides on this transaction so the "who became
-  // superadmin" audit row commits with the user row.
+  // activity-log insert also rides on this transaction so the "who got the
+  // admin role" audit row commits with the user row.
   const { isFirstUser } = await db.transaction().execute(async (trx) => {
     await sql`SELECT pg_advisory_xact_lock(${sql.lit(REGISTRATION_LOCK_KEY)})`.execute(trx)
 
@@ -83,7 +84,7 @@ export default defineEventHandler(async (event) => {
         email,
         password: hashedPassword,
         verified: firstUser,
-        superadmin: firstUser,
+        roles: firstUser ? ['admin'] : ['member'],
         display_name,
         avatar: '',
         token_key: tokenKey,
@@ -127,7 +128,8 @@ export default defineEventHandler(async (event) => {
         display_name,
         avatar: '',
         verified: true,
-        superadmin: true
+        roles: ['admin'],
+        permissions: [...ROLES.admin.permissions]
       }
     }
   }

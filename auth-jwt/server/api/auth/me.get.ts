@@ -1,3 +1,5 @@
+import { getUserPermissions } from '../../utils/rbac'
+
 export default defineEventHandler(async (event) => {
   const authUser = getAuthUser(event)
 
@@ -8,7 +10,7 @@ export default defineEventHandler(async (event) => {
   // Get fresh user data from database
   const user = await db
     .selectFrom('users')
-    .select(['id', 'email', 'display_name', 'avatar', 'verified', 'superadmin', 'created', 'updated'])
+    .select(['id', 'email', 'display_name', 'avatar', 'verified', 'roles', 'created', 'updated'])
     .where('id', '=', authUser.userId)
     .executeTakeFirst()
 
@@ -16,10 +18,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
 
+  const permissions = await getUserPermissions(user.id)
+
   return {
     user: {
       ...user,
-      avatar: user.avatar || null
+      avatar: user.avatar || null,
+      permissions: [...permissions]
     }
   }
 })

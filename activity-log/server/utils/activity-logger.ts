@@ -19,7 +19,7 @@ interface LogEventOptions {
  *
  * Accepts an optional `executor` so the insert can run inside a caller's
  * transaction — useful when the audit row must commit atomically with the
- * operation it describes (e.g. promoting the first user to superadmin).
+ * operation it describes (e.g. granting the first user the admin role).
  * Defaults to the global db for fire-and-forget use from helpers.
  */
 export async function logEvent(

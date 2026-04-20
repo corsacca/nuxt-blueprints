@@ -15,6 +15,9 @@ Parse the user's request to determine which blocks they want. Map casual languag
 - "activity log" / "logging" / "audit" → `activity-log`
 - "rate limiting" / "rate limit" → `rate-limiting/db` (default) or `rate-limiting/memory`
 - "S3" / "storage" / "file upload" → `s3-storage`
+- "admin section" / "admin dashboard" / "admin area" → `admin`
+- "user management" / "admin users" / "manage users" → `user-management`
+- "roles" / "permissions" / "RBAC" → already baked into `auth-jwt`. For the assignment UI, include `user-management` (which pulls in `admin`)
 - "kitchen sink" / "component showcase" → `kitchen-sink`
 
 When copying files from a choice group block, also copy files from the group's `shared` directory (declared in manifest.json). For example, `email/mailgun` also needs files from `email/shared/`.
@@ -114,14 +117,24 @@ Each blueprint that touches the database ships a `server/database/schema.ts` fra
 
 1. Copy `core/server/database/schema.ts` into `<project>/server/database/schema.ts` as the starting point. It defines the base `UsersTable` and a `Database` interface with just `{ users }`.
 2. For each additional blueprint with a `server/database/schema.ts`, merge its extensions into the project's schema file, in dependency order:
-   - `auth-jwt` adds auth columns to `UsersTable` and appends `password_reset_requests`
+   - `auth-jwt` adds auth columns (including `roles: Generated<string[]>`) to `UsersTable` and appends `password_reset_requests`
    - `activity-log` appends `activity_logs`
    - `auth-google` adds `google_id` to `UsersTable` and relaxes `password` to nullable
    - `auth-firebase` adds `firebase_uid` to `UsersTable` and relaxes `password` to nullable
+   - `admin` and `user-management` ship no schema fragments — they layer logic on top of the `roles` column already provided by `auth-jwt`
 
 The result is a single `server/database/schema.ts` file in the project with one consolidated `Database` interface covering every selected blueprint's tables and columns. The Kysely query builder uses this type for autocomplete and compile-time type checking across all query sites.
 
 Do NOT copy each blueprint's `schema.ts` as a separate file — they're fragments meant to be merged, not kept as separate files.
+
+## Step 8.6: Merge permission fragments
+
+`auth-jwt`'s `app/utils/permissions.ts` is the single source of truth for permissions. If any other selected block ships its own `app/utils/permissions.ts` fragment, merge it into `auth-jwt`'s version at assembly time:
+
+- Concatenate each fragment's `PERMISSIONS` array into a single union
+- Merge each fragment's `PERMISSION_META` object entries into a single object
+
+Do NOT copy each blueprint's `permissions.ts` as a separate file. Like schema fragments, they're meant to be merged into one file. Today most blocks don't ship a `permissions.ts` fragment — only merge the ones that do.
 
 ## Step 9: Write .blueprints.json
 
@@ -153,4 +166,8 @@ After the server boots successfully, tell the user what to do next:
 
   > When you register your first account, you'll be promoted to admin automatically and logged straight in — no email verification required. Subsequent registrations follow the normal email-verification flow.
 
-  This reflects the first-user bootstrap behavior in `auth-jwt/server/api/auth/register.post.ts`: the very first user on an empty `users` table is inserted with `verified: true, superadmin: true` and receives an `auth-token` cookie immediately.
+  This reflects the first-user bootstrap behavior in `auth-jwt/server/api/auth/register.post.ts`: the very first user on an empty `users` table is inserted with `verified: true` and `roles: ['admin']`. Subsequent registrations receive `roles: ['member']`. `auth-jwt` ships the roles + permissions definitions, guards (`requireRole`, `requirePermission`), and the `usePermissions()` composable — so even without any admin UI you can gate your own handlers by role.
+
+- **If `user-management` is included**, also include this verbatim:
+
+  > Visit `/admin/users` to assign roles to other users, or `/admin/roles` to see what each role grants. Roles and permissions live in `app/utils/role-definitions.ts` and `app/utils/permissions.ts` — edit those files to customize.

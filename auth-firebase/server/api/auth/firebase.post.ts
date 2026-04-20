@@ -102,7 +102,7 @@ export default defineEventHandler(async (event) => {
         email: email!,
         password: null,
         verified: true,
-        superadmin: false,
+        roles: [],
         display_name: displayName,
         avatar: picture || '',
         token_key: tokenKey,
@@ -116,7 +116,7 @@ export default defineEventHandler(async (event) => {
       display_name: displayName,
       avatar: picture || '',
       verified: true,
-      superadmin: false,
+      roles: [],
     } as any
   }
 
@@ -146,7 +146,7 @@ export default defineEventHandler(async (event) => {
       display_name: user!.display_name,
       avatar: user!.avatar,
       verified: user!.verified,
-      superadmin: user!.superadmin,
+      roles: user!.roles,
     }
   }
 })

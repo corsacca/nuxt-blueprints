@@ -150,16 +150,45 @@ JWT-based authentication with email verification, password reset, and user profi
 
 **Provides:**
 - `useAuth` composable (login, register, logout, checkAuth)
+- `usePermissions` composable (`hasRole`, `hasPermission`, `isAdmin`)
 - Auth middleware (`app/middleware/auth.ts`)
 - Auth client plugin (`app/plugins/auth.client.ts`)
 - Pages: login, register, reset-password, profile
-- Server API routes: login, register, logout, me, verify, forgot-password, reset-password, verify-email-change
+- Server API routes: login, register, logout, me, verify, forgot-password, reset-password, verify-email-change (login + me return the user's resolved `permissions` alongside `roles`)
 - Profile API routes: update display name, request email change, change password, delete account
 - JWT token utilities (`server/utils/auth.ts`)
-- Migration adding password, verified, token_key, superadmin columns to users table
+- **Baseline roles-and-permissions**: `app/utils/permissions.ts` registry, `app/utils/role-definitions.ts` with `admin` / `member` defaults, `server/utils/rbac.ts` with `requireRole`, `requirePermission`, and the resolver. First registered user auto-gets `roles: ['admin']`; everyone else gets `roles: ['member']`.
+- Migration adding password, verified, token_key, roles columns to users table
 - Migration creating password_reset_requests table
 
 **Depends on:** `core`, an email provider block
+
+---
+
+### `admin` — Default
+
+Minimal admin-area shell: gated `/admin/*` layout, middleware, empty dashboard. Other admin blocks hang routes and nav entries off this.
+
+**Provides:**
+- `app/layouts/admin.vue` with a single "Dashboard" nav item (other blocks extend via wiring notes)
+- `app/middleware/admin.ts` — redirects users without the `admin` role to `/`
+- `app/pages/admin/index.vue` — empty dashboard shell
+
+**Depends on:** `core`, `auth-jwt`
+
+---
+
+### `user-management` — Default
+
+Admin UI for managing users.
+
+**Provides:**
+- `/admin/users` — paginated users list with search, sort, slideover for editing display name, assigning roles, and deleting
+- `/admin/roles` — accordion view of every role with per-permission granted/not-granted indicators
+- Admin API routes: `GET /api/admin/users`, `PATCH /api/admin/users/[id]`, `DELETE /api/admin/users/[id]`, `PUT /api/admin/users/[id]/roles` — all `requireRole('admin')`-gated and audit-logged. Refuses to delete the caller or the last admin.
+- Wiring note: adds "Users" + "Roles" nav entries to the admin layout
+
+**Depends on:** `core`, `auth-jwt`, `activity-log`, `admin`
 
 ---
 

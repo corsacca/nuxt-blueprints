@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken'
 import { db } from '../../utils/database'
 import { logLoginFailed, logLogin } from '../../utils/activity-logger'
 import { checkRateLimit, logRateLimitExceeded } from '../../utils/rate-limit'
+import { getUserPermissions } from '../../utils/rbac'
 import { readBody, getHeader, setResponseHeader, setCookie } from 'h3'
 import { useRuntimeConfig, createError } from '#imports'
 
@@ -69,6 +70,8 @@ export default defineEventHandler(async (event) => {
   // Log successful login
   logLogin(user.id, userAgent)
 
+  const permissions = await getUserPermissions(user.id)
+
   return {
     success: true,
     user: {
@@ -77,7 +80,8 @@ export default defineEventHandler(async (event) => {
       display_name: user.display_name,
       avatar: user.avatar,
       verified: user.verified,
-      superadmin: user.superadmin
+      roles: user.roles,
+      permissions: [...permissions]
     }
   }
 })
