@@ -12,8 +12,8 @@ export interface UsersTable extends BaseUsersTable {
 
 export interface PasswordResetRequestsTable {
   id: Generated<string>
-  created: ColumnType<Date, string | undefined, string>
-  expires: ColumnType<Date, string, string>
+  created: ColumnType<Date, Date | string | undefined, Date | string>
+  expires: ColumnType<Date, Date | string, Date | string>
   user_id: string
   token: string
   used: Generated<boolean>

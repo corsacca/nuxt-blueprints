@@ -14,7 +14,7 @@ interface AdminUserRow {
   email: string
   verified: boolean
   created: string
-  last_login: number | null
+  last_login: string | null
   roles: string[]
 }
 
@@ -86,9 +86,9 @@ const formatDate = (value: string | Date | null | undefined) => {
   return d.toLocaleString()
 }
 
-const formatTimestamp = (ms: number | null | undefined) => {
-  if (!ms) return '—'
-  const d = new Date(Number(ms))
+const formatTimestamp = (input: string | number | null | undefined) => {
+  if (!input) return '—'
+  const d = new Date(input)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleString()
 }

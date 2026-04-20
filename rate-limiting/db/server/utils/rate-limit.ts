@@ -19,14 +19,14 @@ export async function checkRateLimit(
   windowMs: number,
   maxAttempts: number
 ): Promise<RateLimitResult> {
-  const windowStart = Date.now() - windowMs
+  const windowStart = new Date(Date.now() - windowMs)
 
   try {
     const result = await db
       .selectFrom('activity_logs')
       .select([
         sql<number>`COUNT(*)::int`.as('count'),
-        sql<number | null>`MIN(timestamp)`.as('oldest_attempt'),
+        sql<Date | null>`MIN(timestamp)`.as('oldest_attempt'),
       ])
       .where('event_type', '=', eventType)
       .where(sql`metadata->>${sql.lit(identifierField)}`, '=', identifierValue)
@@ -38,7 +38,7 @@ export async function checkRateLimit(
 
     if (count >= maxAttempts) {
       const retryAfterMs = oldestAttempt
-        ? (Number(oldestAttempt) + windowMs) - Date.now()
+        ? (new Date(oldestAttempt).getTime() + windowMs) - Date.now()
         : windowMs
 
       return {

@@ -31,7 +31,7 @@ export async function logEvent(
       .insertInto('activity_logs')
       .values({
         id: crypto.randomUUID(),
-        timestamp: Date.now(),
+        timestamp: new Date(),
         event_type: options.eventType,
         table_name: options.tableName ?? null,
         record_id: options.recordId ?? null,

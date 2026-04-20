@@ -5,7 +5,7 @@ export async function up(db: Kysely<any>): Promise<void> {
     .createTable('activity_logs')
     .ifNotExists()
     .addColumn('id', 'uuid', col => col.primaryKey().defaultTo(sql`gen_random_uuid()`))
-    .addColumn('timestamp', 'bigint', col => col.notNull())
+    .addColumn('timestamp', 'timestamptz', col => col.notNull().defaultTo(sql`now()`))
     .addColumn('event_type', 'text', col => col.notNull())
     .addColumn('table_name', 'text')
     .addColumn('record_id', 'text')

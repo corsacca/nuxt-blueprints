@@ -69,7 +69,7 @@ export default defineEventHandler(async (event) => {
         .values({
           user_id: user.id,
           token,
-          expires: expires.toISOString(),
+          expires,
           used: false,
         })
         .execute()
