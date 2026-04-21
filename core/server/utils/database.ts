@@ -29,7 +29,11 @@ function getDb(): Kysely<Database> {
 }
 
 export const db = new Proxy({} as Kysely<Database>, {
-  get: (_, prop) => (getDb() as any)[prop],
+  get: (_, prop) => {
+    const real = getDb()
+    const value = (real as any)[prop]
+    return typeof value === 'function' ? value.bind(real) : value
+  },
 })
 
 export { sql }

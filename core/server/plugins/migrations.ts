@@ -1,7 +1,7 @@
 import { FileMigrationProvider, Migrator } from 'kysely'
 import { promises as fs } from 'fs'
 import * as path from 'path'
-import { db } from '~/server/utils/database'
+import { db } from '../utils/database'
 
 export default defineNitroPlugin(async () => {
   const databaseUrl = useRuntimeConfig().databaseUrl || process.env.DATABASE_URL
