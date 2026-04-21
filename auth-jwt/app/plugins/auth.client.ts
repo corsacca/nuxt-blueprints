@@ -2,11 +2,8 @@ export default defineNuxtPlugin(async () => {
   const { restoreFromCache, checkAuth, setAuthReady } = useAuth()
 
   restoreFromCache()
-
-  const hasAuthCookie = document.cookie.includes('auth-token')
-  if (hasAuthCookie) {
-    await checkAuth()
-  }
+  // auth-token is httpOnly so document.cookie can't see it — always verify with the server
+  await checkAuth()
 
   setAuthReady(true)
 })
