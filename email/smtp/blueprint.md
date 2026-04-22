@@ -46,8 +46,8 @@ smtpFromName: process.env.SMTP_FROM_NAME || '',
 ## Environment Variables
 
 ```env
-SMTP_HOST=localhost
-SMTP_PORT=1025
+SMTP_HOST=
+SMTP_PORT=587              # 587 STARTTLS (most providers) | 465 implicit TLS | 1025 MailHog (dev)
 SMTP_USER=
 SMTP_PASS=
 SMTP_SECURE=false

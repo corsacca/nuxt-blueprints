@@ -13,14 +13,48 @@ Standard SMTP transport. Works with any email provider that supports SMTP.
 #### Environment Variables
 
 ```env
-SMTP_HOST=localhost
-SMTP_PORT=1025
+# Production defaults — set host/user/pass to your provider's values (see below)
+SMTP_HOST=
+SMTP_PORT=587              # 587 STARTTLS (most providers) | 465 implicit TLS | 1025 MailHog (dev)
 SMTP_USER=
 SMTP_PASS=
-SMTP_SECURE=false
+SMTP_SECURE=false          # true = implicit TLS (port 465). false = STARTTLS or plaintext.
+SMTP_REJECT_UNAUTHORIZED=true  # set false only for self-signed certs in dev
+
 SMTP_FROM=noreply@yourdomain.com
 SMTP_FROM_NAME=My App
-SMTP_REJECT_UNAUTHORIZED=true
+```
+
+Provider-specific values:
+
+```env
+# Mailgun — US region
+SMTP_HOST=smtp.mailgun.org          # smtp.eu.mailgun.org for EU domains
+SMTP_PORT=587                       # or 465 with SMTP_SECURE=true
+SMTP_USER=postmaster@mg.yourdomain.com
+SMTP_PASS=<mailgun-smtp-password>   # Dashboard > Sending > Domain settings > SMTP credentials (NOT the API key)
+SMTP_SECURE=false
+
+# SendGrid
+SMTP_HOST=smtp.sendgrid.net
+SMTP_PORT=587
+SMTP_USER=apikey                    # literal string "apikey"
+SMTP_PASS=<sendgrid-api-key>
+SMTP_SECURE=false
+
+# AWS SES (example: us-east-1 — substitute your region)
+SMTP_HOST=email-smtp.us-east-1.amazonaws.com
+SMTP_PORT=587
+SMTP_USER=<ses-smtp-username>       # generated in SES console, not your IAM key
+SMTP_PASS=<ses-smtp-password>
+SMTP_SECURE=false
+
+# Gmail (App Password, not your account password)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=you@gmail.com
+SMTP_PASS=<16-char-app-password>
+SMTP_SECURE=false
 ```
 
 #### Where to get SMTP credentials
