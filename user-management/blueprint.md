@@ -20,6 +20,8 @@ server/api/admin/users.get.ts
 server/api/admin/users/[id].patch.ts
 server/api/admin/users/[id].delete.ts
 server/api/admin/users/[id]/roles.put.ts
+server/api/admin/users/[id]/verify.post.ts
+server/api/admin/users/[id]/send-verification.post.ts
 ```
 
 ## Package Dependencies
@@ -36,12 +38,14 @@ No schema changes.
 
 ## Routes & Endpoints
 
-- `/admin/users` — paginated users list with search and sort, a row slideover for editing display name, assigning roles, and deleting
+- `/admin/users` — paginated users list with search and sort, a row slideover for editing display name, assigning roles, managing verification, and deleting
 - `/admin/roles` — accordion view of every role (from `app/utils/role-definitions.ts`) with a per-permission granted / not-granted indicator and descriptions from `PERMISSION_META`
 - `GET /api/admin/users` — paginated list, `requireRole('admin')`
 - `PATCH /api/admin/users/[id]` — update display name, `requireRole('admin')`, audit-logged
 - `DELETE /api/admin/users/[id]` — delete user + password reset records, `requireRole('admin')`, audit-logged, refuses to delete the caller or the last `admin`
 - `PUT /api/admin/users/[id]/roles` — replace the user's `roles` array, `requireRole('admin')`, audit-logged, validates every role name against static (and, if installed, custom) role definitions, refuses to remove the last `admin`
+- `POST /api/admin/users/[id]/verify` — mark the user as verified without requiring them to click the verification link, `users.manage`, audit-logged
+- `POST /api/admin/users/[id]/send-verification` — (re)send the verification email using the user's existing `token_key`, `users.manage`, audit-logged, 400s if already verified
 
 ## Wiring Notes
 
@@ -91,6 +95,8 @@ All endpoints use specific permission guards from `auth-jwt`'s `server/utils/rba
 | `PATCH /api/admin/users/[id]` | `users.manage` |
 | `DELETE /api/admin/users/[id]` | `users.manage` |
 | `PUT /api/admin/users/[id]/roles` | `users.manage` + **subset delegation** |
+| `POST /api/admin/users/[id]/verify` | `users.manage` |
+| `POST /api/admin/users/[id]/send-verification` | `users.manage` |
 
 ### Subset Delegation
 

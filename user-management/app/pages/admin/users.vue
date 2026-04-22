@@ -340,6 +340,62 @@ const handleSave = async () => {
   }
 }
 
+// Verification actions
+const markingVerified = ref(false)
+const sendingVerification = ref(false)
+
+const handleMarkVerified = async () => {
+  if (!selectedUser.value || selectedUser.value.verified) return
+  markingVerified.value = true
+  try {
+    const userId = selectedUser.value.id
+    await $fetch<{ user: { id: string; verified: boolean } }>(
+      `/api/admin/users/${userId}/verify`,
+      { method: 'POST' }
+    )
+
+    if (data.value) {
+      data.value = {
+        ...data.value,
+        rows: data.value.rows.map(r =>
+          r.id === userId ? { ...r, verified: true } : r
+        )
+      }
+    }
+    if (selectedUser.value) {
+      selectedUser.value = { ...selectedUser.value, verified: true }
+    }
+
+    toast.add({ title: 'User marked as verified', color: 'success' })
+  } catch (err: any) {
+    toast.add({
+      title: 'Verification failed',
+      description: err?.data?.statusMessage || err?.message || 'Failed to mark user as verified',
+      color: 'error'
+    })
+  } finally {
+    markingVerified.value = false
+  }
+}
+
+const handleSendVerification = async () => {
+  if (!selectedUser.value || selectedUser.value.verified) return
+  sendingVerification.value = true
+  try {
+    const userId = selectedUser.value.id
+    await $fetch(`/api/admin/users/${userId}/send-verification`, { method: 'POST' })
+    toast.add({ title: 'Verification email sent', color: 'success' })
+  } catch (err: any) {
+    toast.add({
+      title: 'Send failed',
+      description: err?.data?.statusMessage || err?.message || 'Failed to send verification email',
+      color: 'error'
+    })
+  } finally {
+    sendingVerification.value = false
+  }
+}
+
 // Delete flow
 const deleteModalOpen = ref(false)
 const deleting = ref(false)
@@ -467,7 +523,7 @@ const handleDelete = async () => {
                 <UIcon name="i-lucide-mail" class="size-3.5 shrink-0" />
                 <span class="truncate">{{ selectedUser.email }}</span>
               </a>
-              <div class="mt-2.5">
+              <div class="mt-2.5 flex items-center gap-2 flex-wrap">
                 <UBadge
                   :color="selectedUser.verified ? 'success' : 'neutral'"
                   variant="subtle"
@@ -479,6 +535,30 @@ const handleDelete = async () => {
                   />
                   {{ selectedUser.verified ? 'Verified' : 'Unverified' }}
                 </UBadge>
+                <template v-if="!selectedUser.verified">
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    color="success"
+                    icon="i-lucide-badge-check"
+                    :loading="markingVerified"
+                    :disabled="markingVerified || sendingVerification"
+                    @click="handleMarkVerified"
+                  >
+                    Mark verified
+                  </UButton>
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    color="neutral"
+                    icon="i-lucide-mail"
+                    :loading="sendingVerification"
+                    :disabled="markingVerified || sendingVerification"
+                    @click="handleSendVerification"
+                  >
+                    Resend email
+                  </UButton>
+                </template>
               </div>
             </div>
           </section>
