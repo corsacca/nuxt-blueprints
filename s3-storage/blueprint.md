@@ -31,6 +31,7 @@ s3Region: process.env.S3_REGION || '',
 s3AccessKeyId: process.env.S3_ACCESS_KEY_ID || '',
 s3SecretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
 s3BucketName: process.env.S3_BUCKET_NAME || '',
+s3PublicBaseUrl: process.env.S3_PUBLIC_BASE_URL || '',
 ```
 
 ## Environment Variables
@@ -41,4 +42,7 @@ S3_REGION=us-west-004
 S3_ACCESS_KEY_ID=your-access-key-id
 S3_SECRET_ACCESS_KEY=your-secret-access-key
 S3_BUCKET_NAME=your-bucket-name
+# Optional: only required if you call uploadToS3(..., 'public') or getPublicUrl()
+# Set to the custom domain attached to your bucket (e.g. Cloudflare R2 custom domain)
+S3_PUBLIC_BASE_URL=https://cdn.example.com
 ```

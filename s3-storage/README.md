@@ -4,10 +4,36 @@ S3-compatible file storage with presigned URLs. Works with AWS S3, Backblaze B2,
 
 ## What You Get
 
-- `uploadToS3()` -- upload files to your bucket
+- `uploadToS3()` -- upload files to your bucket (private by default, or public)
 - `deleteFromS3()` -- delete files from your bucket
 - `generateSignedUrl()` -- create time-limited download URLs
+- `getPublicUrl()` -- build a stable public URL for an object key
 - Image type and file size validation helpers
+
+## Public vs Private Uploads
+
+`uploadToS3(buffer, filename, contentType, visibility)` takes an optional 4th
+argument:
+
+- `'private'` (default) -- returns a signed URL that expires in 7 days. Use
+  for user-uploaded documents, attachments, or anything that should not be
+  linked from a public page.
+- `'public'` -- returns a stable URL built from `S3_PUBLIC_BASE_URL`. Use for
+  images or assets rendered on public pages that need a cacheable,
+  non-expiring URL.
+
+Public mode requires `S3_PUBLIC_BASE_URL` to be set; it will throw otherwise.
+
+### Cloudflare R2 note (one-bucket model)
+
+Public access on R2 is granted at the bucket level by attaching a custom
+domain. Once attached, every object in the bucket is reachable via that
+domain -- including ones uploaded with `'private'`. The block uses a single
+bucket, so "private" here means "signed URL returned," not "unreachable by
+the public." Random 16-byte hex keys make objects unguessable in practice,
+but this is not a hard access boundary. If you need a strict boundary, use
+two separate buckets (one without a custom domain) and adjust the block
+accordingly.
 
 ## Files
 
@@ -23,6 +49,8 @@ S3_REGION=us-west-004
 S3_ACCESS_KEY_ID=your-access-key-id
 S3_SECRET_ACCESS_KEY=your-secret-access-key
 S3_BUCKET_NAME=your-bucket-name
+# Optional -- only required for public uploads
+S3_PUBLIC_BASE_URL=https://cdn.example.com
 ```
 
 ### Where to get S3 credentials
