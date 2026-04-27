@@ -4,7 +4,7 @@ import { requirePermission } from '../../../utils/rbac'
 import { logEvent } from '../../../utils/activity-logger'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requirePermission(event, 'roles.manage')
+  const admin = await requirePermission(event, 'roles.delete')
 
   const id = getRouterParam(event, 'id')
   if (!id) {

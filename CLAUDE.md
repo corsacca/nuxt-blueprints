@@ -172,7 +172,7 @@ After the server boots successfully, tell the user what to do next:
 
 - **If `user-management` is included**, also include this verbatim:
 
-  > Visit `/admin/users` to assign roles to other users, or `/admin/roles` to see what each role grants. Roles and permissions live in `app/utils/role-definitions.ts` and `app/utils/permissions.ts` — edit those files to customize. The `admin.access` permission is required to reach `/admin`; specific pages and actions require their own permissions (e.g. `users.view`, `users.manage`, `roles.view`, `roles.manage`). Assigning a role requires you to already hold every permission that role grants (subset delegation).
+  > Visit `/admin/users` to assign roles to other users, or `/admin/roles` to see what each role grants. Roles and permissions live in `app/utils/role-definitions.ts` and `app/utils/permissions.ts` — edit those files to customize. The `admin.access` permission is required to reach `/admin`; specific pages and actions require their own permissions (e.g. `users.view`, `users.edit`, `users.delete`, `users.assign-roles`, `users.verify`, `roles.view`, `roles.write`, `roles.delete`). Assigning a role requires you to already hold every permission that role grants (subset delegation).
 
 - **If `custom-roles` is included**, also include this verbatim:
 

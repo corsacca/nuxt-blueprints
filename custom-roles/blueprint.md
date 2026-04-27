@@ -51,9 +51,9 @@ At assembly time this becomes the next sequential migration after whatever the s
 ## Routes & Endpoints
 
 - `GET /api/admin/custom-roles` — list all custom roles, `requirePermission('roles.view')`
-- `POST /api/admin/custom-roles` — create, `requirePermission('roles.manage')`. Rejects (409) if the name collides with any static role or existing custom role. Rejects (400) if permissions contain unknown strings.
-- `PUT /api/admin/custom-roles/[id]` — update name / description / permissions, `requirePermission('roles.manage')`. Same validation as POST.
-- `DELETE /api/admin/custom-roles/[id]` — delete, `requirePermission('roles.manage')`. Reports `users_affected` count in the response. Users who had this role keep the name in their `users.roles` array; it silently resolves to no permissions until reassigned.
+- `POST /api/admin/custom-roles` — create, `requirePermission('roles.write')`. Rejects (409) if the name collides with any static role or existing custom role. Rejects (400) if permissions contain unknown strings.
+- `PUT /api/admin/custom-roles/[id]` — update name / description / permissions, `requirePermission('roles.write')`. Same validation as POST.
+- `DELETE /api/admin/custom-roles/[id]` — delete, `requirePermission('roles.delete')`. Reports `users_affected` count in the response. Users who had this role keep the name in their `users.roles` array; it silently resolves to no permissions until reassigned.
 
 All endpoints audit-logged.
 

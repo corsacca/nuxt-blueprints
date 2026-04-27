@@ -5,7 +5,7 @@ import { logEvent } from '../../../../utils/activity-logger'
 import { sendTemplateEmail } from '../../../../utils/email'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requirePermission(event, 'users.manage')
+  const admin = await requirePermission(event, 'users.verify')
 
   const id = getRouterParam(event, 'id')
   if (!id) {

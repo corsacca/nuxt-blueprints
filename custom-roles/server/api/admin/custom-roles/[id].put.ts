@@ -6,7 +6,7 @@ import { isStaticRole } from '~~/app/utils/role-definitions'
 import { isPermission } from '~~/app/utils/permissions'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requirePermission(event, 'roles.manage')
+  const admin = await requirePermission(event, 'roles.write')
 
   const id = getRouterParam(event, 'id')
   if (!id) {

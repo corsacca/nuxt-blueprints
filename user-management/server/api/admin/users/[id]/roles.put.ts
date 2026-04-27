@@ -9,7 +9,7 @@ import {
 import { logEvent } from '../../../../utils/activity-logger'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requirePermission(event, 'users.manage')
+  const admin = await requirePermission(event, 'users.assign-roles')
 
   const id = getRouterParam(event, 'id')
   if (!id) {
@@ -53,8 +53,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // Subset delegation: the assigner can only add/remove roles whose permissions
-  // they themselves hold. Prevents users with `users.manage` from escalating
-  // anyone (including themselves) into permissions they don't have.
+  // they themselves hold. Prevents users with `users.assign-roles` from
+  // escalating anyone (including themselves) into permissions they don't have.
   const deltaRoleNames = Array.from(new Set([...added, ...removed]))
   const [assignerPerms, deltaPerms] = await Promise.all([
     getUserPermissions(admin.userId),

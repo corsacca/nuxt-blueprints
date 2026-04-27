@@ -38,7 +38,13 @@ const availableRoles = computed<AssignableRole[]>(() =>
 
 const { permissions: myPermissions, hasPermission } = usePermissions()
 
-const canManageUsers = computed(() => hasPermission('users.manage'))
+const canEditUser = computed(() => hasPermission('users.edit'))
+const canDeleteUser = computed(() => hasPermission('users.delete'))
+const canAssignRoles = computed(() => hasPermission('users.assign-roles'))
+const canVerifyUser = computed(() => hasPermission('users.verify'))
+const canOpenUser = computed(() =>
+  canEditUser.value || canDeleteUser.value || canAssignRoles.value || canVerifyUser.value
+)
 
 const canAssignRole = (role: AssignableRole) => {
   const mine = new Set(myPermissions.value)
@@ -300,7 +306,7 @@ const handleSaveRoles = async () => {
 }
 
 const handleRowSelect = (_event: Event, row: { original: AdminUserRow }) => {
-  if (!canManageUsers.value) return
+  if (!canOpenUser.value) return
   openRow(row.original)
 }
 
@@ -461,7 +467,7 @@ const handleDelete = async () => {
         :empty-state="{ icon: 'i-lucide-users', label: 'No users found' }"
         :on-select="handleRowSelect"
         :meta="tableMeta"
-        :ui="{ tr: canManageUsers ? 'transition-colors cursor-pointer' : 'transition-colors' }"
+        :ui="{ tr: canOpenUser ? 'transition-colors cursor-pointer' : 'transition-colors' }"
       />
     </div>
 
@@ -483,7 +489,7 @@ const handleDelete = async () => {
       :ui="{ content: 'w-screen max-w-full sm:max-w-none sm:w-[50vw]' }"
     >
       <template #actions>
-        <UTooltip :text="isSelf ? 'Cannot delete your own account' : 'Delete user'">
+        <UTooltip v-if="canDeleteUser" :text="isSelf ? 'Cannot delete your own account' : 'Delete user'">
           <UButton
             icon="i-lucide-trash-2"
             color="error"
@@ -535,7 +541,7 @@ const handleDelete = async () => {
                   />
                   {{ selectedUser.verified ? 'Verified' : 'Unverified' }}
                 </UBadge>
-                <template v-if="!selectedUser.verified">
+                <template v-if="!selectedUser.verified && canVerifyUser">
                   <UButton
                     size="xs"
                     variant="soft"
@@ -588,7 +594,7 @@ const handleDelete = async () => {
           </section>
 
           <!-- Edit form -->
-          <section>
+          <section v-if="canEditUser">
             <div class="flex items-center gap-2 mb-4">
               <UIcon name="i-lucide-pencil" class="size-4 text-(--ui-text-muted)" />
               <h3 class="text-sm font-semibold uppercase tracking-wide text-(--ui-text-muted)">Edit details</h3>
@@ -636,7 +642,7 @@ const handleDelete = async () => {
           </section>
 
           <!-- Roles editor -->
-          <section>
+          <section v-if="canAssignRoles">
             <div class="flex items-center gap-2 mb-4">
               <UIcon name="i-lucide-shield" class="size-4 text-(--ui-text-muted)" />
               <h3 class="text-sm font-semibold uppercase tracking-wide text-(--ui-text-muted)">Roles</h3>
