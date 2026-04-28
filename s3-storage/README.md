@@ -110,6 +110,5 @@ None (standalone utilities, no database tables).
 ## npm Packages
 
 ```
-@aws-sdk/client-s3 ^3.914.0
-@aws-sdk/s3-request-presigner ^3.914.0
+@bradenmacdonald/s3-lite-client ^0.9.6
 ```

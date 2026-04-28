@@ -1,5 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from '@aws-sdk/client-s3'
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner'
+import { S3Client } from '@bradenmacdonald/s3-lite-client'
 import { randomBytes } from 'crypto'
 
 // S3 Client instance (will be initialized lazily)
@@ -50,13 +49,12 @@ function initializeS3Client() {
   }
 
   s3Client = new S3Client({
-    endpoint: settings.endpoint,
+    endPoint: settings.endpoint,
     region: settings.region,
-    credentials: {
-      accessKeyId: settings.accessKeyId,
-      secretAccessKey: settings.secretAccessKey,
-    },
-    forcePathStyle: true, // Required for B2
+    bucket: settings.bucketName,
+    accessKey: settings.accessKeyId,
+    secretKey: settings.secretAccessKey,
+    pathStyle: true, // Required for B2
   })
 
   return s3Client
@@ -87,7 +85,6 @@ export async function uploadToS3(
 ): Promise<UploadResult> {
   try {
     const client = getS3Client()
-    const settings = getS3Settings()
 
     // Generate unique filename
     const ext = originalFilename.split('.').pop()
@@ -95,14 +92,11 @@ export async function uploadToS3(
     const key = `uploads/${randomName}.${ext}`
 
     // Upload to S3
-    const command = new PutObjectCommand({
-      Bucket: settings.bucketName,
-      Key: key,
-      Body: fileData,
-      ContentType: contentType,
+    await client.putObject(key, fileData, {
+      metadata: {
+        'Content-Type': contentType,
+      },
     })
-
-    await client.send(command)
 
     // Generate URL based on visibility: public returns a stable URL via the
     // configured public base, private returns a time-limited signed URL
@@ -138,14 +132,7 @@ export function getPublicUrl(key: string): string {
 export async function deleteFromS3(key: string): Promise<void> {
   try {
     const client = getS3Client()
-    const settings = getS3Settings()
-
-    const command = new DeleteObjectCommand({
-      Bucket: settings.bucketName,
-      Key: key,
-    })
-
-    await client.send(command)
+    await client.deleteObject(key)
   } catch (error: any) {
     console.error('S3 delete error:', error)
     throw new Error(`Failed to delete file from storage: ${error.message}`)
@@ -158,14 +145,7 @@ export async function deleteFromS3(key: string): Promise<void> {
 export async function generateSignedUrl(key: string, expiresIn: number = SIGNED_URL_EXPIRATION): Promise<string> {
   try {
     const client = getS3Client()
-    const settings = getS3Settings()
-
-    const command = new GetObjectCommand({
-      Bucket: settings.bucketName,
-      Key: key,
-    })
-
-    const url = await getSignedUrl(client, command, { expiresIn })
+    const url = await client.presignedGetObject(key, { expirySeconds: expiresIn })
     return url
   } catch (error: any) {
     console.error('S3 signed URL generation error:', error)
