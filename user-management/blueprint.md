@@ -16,6 +16,7 @@ Built on top of the baseline RBAC shipped by `auth-jwt` (role definitions, permi
 ```
 app/pages/admin/users.vue
 app/pages/admin/roles.vue
+app/composables/useAssignableRoles.ts
 server/api/admin/users.get.ts
 server/api/admin/users/index.post.ts
 server/api/admin/users/[id].patch.ts

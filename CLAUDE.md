@@ -123,7 +123,7 @@ Each blueprint that touches the database ships a `server/database/schema.ts` fra
    - `auth-google` adds `google_id` to `UsersTable` and relaxes `password` to nullable
    - `auth-firebase` adds `firebase_uid` to `UsersTable` and relaxes `password` to nullable
    - `admin` and `user-management` ship no schema fragments — they layer logic on top of the `roles` column already provided by `auth-jwt`
-   - `custom-roles` appends `custom_roles` table to the `Database` interface. Also replaces `auth-jwt`'s `server/utils/rbac.ts` with a version that falls back to `custom_roles` lookups, and replaces `user-management`'s `app/pages/admin/roles.vue` + `app/pages/admin/users.vue` with extended versions that include custom-role UI. File overwrites happen automatically via `cp` — just make sure `custom-roles` is processed after `auth-jwt` and `user-management` in dependency order.
+   - `custom-roles` appends `custom_roles` table to the `Database` interface. Also replaces `auth-jwt`'s `server/utils/rbac.ts` with a version that falls back to `custom_roles` lookups, replaces `user-management`'s `app/pages/admin/roles.vue` with an extended version that includes custom-role CRUD UI, and replaces `user-management`'s `app/composables/useAssignableRoles.ts` with a version that fetches DB-backed roles for the role-editor / invite UI. File overwrites happen automatically via `cp` — just make sure `custom-roles` is processed after `auth-jwt` and `user-management` in dependency order.
 
 The result is a single `server/database/schema.ts` file in the project with one consolidated `Database` interface covering every selected blueprint's tables and columns. The Kysely query builder uses this type for autocomplete and compile-time type checking across all query sites.
 

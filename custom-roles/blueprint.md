@@ -16,7 +16,7 @@ Role names in the consumer app can now resolve against **static definitions firs
 
 ```
 app/pages/admin/roles.vue                                       (REPLACES user-management)
-app/pages/admin/users.vue                                       (REPLACES user-management)
+app/composables/useAssignableRoles.ts                           (REPLACES user-management)
 server/utils/rbac.ts                                            (REPLACES auth-jwt)
 server/database/schema.ts
 server/api/admin/custom-roles/index.get.ts
@@ -29,7 +29,7 @@ migrations/006_create_custom_roles.ts
 Three files in this block **replace** files from earlier-processed blocks when assembled:
 
 - `app/pages/admin/roles.vue` replaces `user-management`'s version with one that has Built-in / Custom sections, a "Create role" button, and inline edit/delete modals.
-- `app/pages/admin/users.vue` replaces `user-management`'s version with one that fetches `/api/admin/custom-roles` and merges custom roles into the role editor.
+- `app/composables/useAssignableRoles.ts` replaces `user-management`'s static-only version with one that also fetches `/api/admin/custom-roles` and appends DB-backed roles. `user-management`'s `users.vue` consumes this composable and renders a "Custom" badge for any role whose `source === 'custom'` — when this block isn't installed, that branch never matches.
 - `server/utils/rbac.ts` replaces `auth-jwt`'s version with one whose `getRolePermissions` / `validateRoleNames` fall back to the `custom_roles` table for role names not found in static definitions.
 
 At assembly time the later `cp` overwrites the earlier one — make sure `custom-roles` is processed after `auth-jwt` and `user-management`.

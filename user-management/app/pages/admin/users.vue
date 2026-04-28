@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { h, resolveComponent } from 'vue'
 import type { TableColumn } from '@nuxt/ui'
-import { ROLES, type RoleDefinition } from '~~/app/utils/role-definitions'
+import type { AssignableRole } from '~~/app/composables/useAssignableRoles'
 
 definePageMeta({
   layout: 'admin',
@@ -28,23 +28,7 @@ const STATUS_META: Record<UserStatus, { label: string; color: 'success' | 'warni
   expired_invite: { label: 'Expired invite', color: 'error', icon: 'i-lucide-mail-x' }
 }
 
-interface AssignableRole {
-  name: string
-  description: string
-  source: 'static' | 'custom'
-  permissions: string[]
-}
-
-const staticRoles = Object.values(ROLES) as RoleDefinition[]
-
-const availableRoles = computed<AssignableRole[]>(() =>
-  staticRoles.map(r => ({
-    name: r.name,
-    description: r.description,
-    source: 'static' as const,
-    permissions: [...r.permissions]
-  }))
-)
+const availableRoles = await useAssignableRoles()
 
 const { permissions: myPermissions, hasPermission } = usePermissions()
 
@@ -794,6 +778,14 @@ const handleDelete = async () => {
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium">{{ role.name }}</span>
                     <UBadge
+                      v-if="role.source === 'custom'"
+                      color="neutral"
+                      variant="subtle"
+                      size="sm"
+                    >
+                      Custom
+                    </UBadge>
+                    <UBadge
                       v-if="!canAssignRole(role)"
                       color="warning"
                       variant="subtle"
@@ -902,6 +894,14 @@ const handleDelete = async () => {
                 <div class="flex-1 min-w-0">
                   <div class="flex items-center gap-2 flex-wrap">
                     <span class="font-medium">{{ role.name }}</span>
+                    <UBadge
+                      v-if="role.source === 'custom'"
+                      color="neutral"
+                      variant="subtle"
+                      size="sm"
+                    >
+                      Custom
+                    </UBadge>
                     <UBadge
                       v-if="!canAssignRole(role)"
                       color="warning"
