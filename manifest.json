@@ -67,7 +67,7 @@
     },
     "user-management": {
       "type": "default",
-      "description": "Admin UI for managing users: paginated list, detail slideover with display-name / role editing / deletion, and a roles reference page",
+      "description": "Admin UI for managing users: paginated list with status badges, invite-by-email flow, detail slideover with display-name / role editing / deletion, and a roles reference page",
       "path": "user-management",
       "dependencies": ["core", "auth-jwt", "activity-log", "admin"]
     },

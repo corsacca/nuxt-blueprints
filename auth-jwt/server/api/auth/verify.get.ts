@@ -10,7 +10,7 @@ export default defineEventHandler(async (event) => {
     // Find user with this token
     const user = await db
       .selectFrom('users')
-      .select(['id', 'verified'])
+      .select(['id', 'verified', 'password', 'token_expires_at'])
       .where('token_key', '=', token)
       .executeTakeFirst()
 
@@ -23,10 +23,21 @@ export default defineEventHandler(async (event) => {
       return sendRedirect(event, '/login?verified=already')
     }
 
+    // Pending invites must use /accept-invite, not the verify endpoint —
+    // the invitee still needs to set a password.
+    if (user.password === null) {
+      return sendRedirect(event, '/login?verified=invalid')
+    }
+
+    const expires = user.token_expires_at ? new Date(user.token_expires_at) : null
+    if (expires && expires.getTime() <= Date.now()) {
+      return sendRedirect(event, '/login?verified=expired')
+    }
+
     // Mark user as verified
     await db
       .updateTable('users')
-      .set({ verified: true, updated: new Date().toISOString() })
+      .set({ verified: true, token_expires_at: null, updated: new Date().toISOString() })
       .where('id', '=', user.id)
       .execute()
 

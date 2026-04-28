@@ -39,6 +39,13 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
   }
 
+  // Pending invites have no password set. Treat as generic invalid credentials
+  // so we don't leak whether the email is associated with a pending invite.
+  if (user.password === null) {
+    logLoginFailed(email, userAgent, { reason: 'pending_invite' })
+    throw createError({ statusCode: 401, statusMessage: 'Invalid credentials' })
+  }
+
   // Check if user is verified
   if (!user.verified) {
     logLoginFailed(email, userAgent, { reason: 'not_verified' })

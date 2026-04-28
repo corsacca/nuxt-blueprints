@@ -21,6 +21,7 @@ app/plugins/auth.client.ts
 app/pages/login.vue
 app/pages/register.vue
 app/pages/reset-password.vue
+app/pages/accept-invite.vue
 app/pages/profile.vue
 app/utils/permissions.ts
 app/utils/role-definitions.ts
@@ -34,6 +35,8 @@ server/api/auth/verify.get.ts
 server/api/auth/forgot-password.post.ts
 server/api/auth/reset-password.post.ts
 server/api/auth/verify-email-change.get.ts
+server/api/auth/invite-info.get.ts
+server/api/auth/accept-invite.post.ts
 server/api/profile/name.patch.ts
 server/api/profile/email.post.ts
 server/api/profile/password.patch.ts
@@ -76,7 +79,7 @@ JWT_SECRET=your-super-secret-jwt-key-change-this
 
 ## Migrations
 
-- `002_add_auth_fields.ts` — Adds password, verified, roles (text[]), token_key, pending_email, email_change_token columns to the users table
+- `002_add_auth_fields.ts` — Adds password (nullable), verified, roles (text[]), token_key, token_expires_at, pending_email, email_change_token columns to the users table
 - `003_create_password_reset_table.ts` — Creates the password_reset_requests table
 
 ## Database & Types
@@ -104,6 +107,7 @@ This block ships a minimal but fully-wired RBAC foundation. Consumer projects ow
   - `users.delete` — delete users
   - `users.assign-roles` — assign / revoke roles (subject to subset delegation)
   - `users.verify` — mark verified / resend verification email
+  - `users.invite` — send invitation emails that let new users set a password and activate an account
   - `roles.view` — see the roles reference page
   - `roles.write` — create + edit custom roles
   - `roles.delete` — delete custom roles
@@ -116,6 +120,30 @@ This block ships a minimal but fully-wired RBAC foundation. Consumer projects ow
 `GET /api/auth/me` and `POST /api/auth/login` both return the user's resolved `permissions: string[]` alongside their `roles: string[]`, so client guards work without additional roundtrips.
 
 Without the `admin` block, there's no admin UI — but `requireRole` / `requirePermission` are available for any custom route handler, and consumer projects can extend `PERMISSIONS` and `ROLES` to add their own access rules.
+
+## Invite Flow
+
+Admins can create new users by invitation instead of waiting for them to self-register. The invitee receives an email with a link to `/accept-invite?token=...`, picks a password (and optionally edits the display name the admin pre-filled), and is auto-logged-in on submit.
+
+Storage model: pending invites live as rows in the `users` table, distinguished by `password IS NULL`. The existing `token_key` column doubles as the invite token; the new `token_expires_at` column gives both the invite link and the email-verification link a 7-day expiry.
+
+User-state matrix:
+
+| State | Condition |
+|---|---|
+| Active | `verified = true` |
+| Not verified | `password IS NOT NULL AND verified = false` |
+| Pending invite | `password IS NULL AND verified = false AND token_expires_at > now()` |
+| Expired invite | `password IS NULL AND verified = false AND token_expires_at <= now()` |
+
+Endpoints provided by this block:
+
+- `GET /api/auth/invite-info?token=<token>` — public, returns `{ email, display_name }` for the accept page to pre-fill, 404 if not found, 410 if expired
+- `POST /api/auth/accept-invite` — public, body `{ token, password, display_name }`, sets the password, marks the user verified, rotates `token_key`, issues the JWT cookie, logs both `invite_accepted` and a `LOGIN` event so the user appears in the admin "last login" column
+
+The matching admin endpoint to *send* an invite (`POST /api/admin/users`) lives in the `user-management` block.
+
+Login, password-change, email-change, and account-delete handlers all guard on `password === null` so a pending invitee can't authenticate against a row that hasn't accepted yet — and the leakage-safe response is "Invalid credentials," not a "your invite is pending" hint.
 
 ## Wiring Notes
 

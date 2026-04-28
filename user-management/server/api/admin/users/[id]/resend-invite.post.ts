@@ -6,34 +6,31 @@ import { logEvent } from '../../../../utils/activity-logger'
 import { sendTemplateEmail } from '../../../../utils/email'
 
 export default defineEventHandler(async (event) => {
-  const admin = await requirePermission(event, 'users.verify')
+  const admin = await requirePermission(event, 'users.invite')
 
   const id = getRouterParam(event, 'id')
   if (!id) {
     throw createError({ statusCode: 400, statusMessage: 'User id is required' })
   }
 
-  const target = await db
+  const user = await db
     .selectFrom('users')
-    .select(['id', 'email', 'display_name', 'verified', 'password'])
+    .select(['id', 'email', 'display_name', 'password', 'verified'])
     .where('id', '=', id)
     .executeTakeFirst()
 
-  if (!target) {
+  if (!user) {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
 
-  if (target.verified) {
-    throw createError({ statusCode: 400, statusMessage: 'User is already verified' })
+  if (user.verified) {
+    throw createError({ statusCode: 409, statusMessage: 'User is already verified' })
   }
 
-  // Pending invites haven't set a password yet — they need /resend-invite, not
-  // verification. Otherwise the verification link they'd click would land them
-  // in the wrong flow.
-  if (target.password === null) {
+  if (user.password !== null) {
     throw createError({
       statusCode: 409,
-      statusMessage: 'User has not accepted their invite. Use POST /api/admin/users/[id]/resend-invite instead.'
+      statusMessage: 'User has already set a password. Use POST /api/admin/users/[id]/send-verification instead.'
     })
   }
 
@@ -51,28 +48,29 @@ export default defineEventHandler(async (event) => {
     .execute()
 
   const baseUrl = getRequestURL(event).origin
-  const verificationUrl = `${baseUrl}/api/auth/verify?token=${tokenKey}`
+  const inviteUrl = `${baseUrl}/accept-invite?token=${tokenKey}`
 
-  const sent = await sendTemplateEmail({
-    to: target.email,
-    template: 'verification',
-    data: {
-      userName: target.display_name,
-      verificationUrl
-    }
-  })
-
-  if (!sent) {
-    throw createError({ statusCode: 502, statusMessage: 'Failed to send verification email' })
+  try {
+    await sendTemplateEmail({
+      to: user.email,
+      template: 'invite',
+      data: {
+        userName: user.display_name,
+        inviterName: admin.display_name,
+        inviteUrl
+      }
+    })
+  } catch (err) {
+    console.error('Error sending invite email:', err)
   }
 
   await logEvent({
-    eventType: 'admin_send_verification',
+    eventType: 'invite_resent',
     tableName: 'users',
     recordId: id,
     userId: admin.userId,
     userAgent: getHeader(event, 'user-agent') || undefined,
-    metadata: { email: target.email }
+    metadata: { email: user.email }
   })
 
   return { success: true }

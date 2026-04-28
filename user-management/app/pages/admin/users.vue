@@ -8,14 +8,24 @@ definePageMeta({
   middleware: ['auth', 'admin']
 })
 
+type UserStatus = 'active' | 'not_verified' | 'pending_invite' | 'expired_invite'
+
 interface AdminUserRow {
   id: string
   display_name: string
   email: string
   verified: boolean
+  status: UserStatus
   created: string
   last_login: string | null
   roles: string[]
+}
+
+const STATUS_META: Record<UserStatus, { label: string; color: 'success' | 'warning' | 'info' | 'error'; icon: string }> = {
+  active: { label: 'Active', color: 'success', icon: 'i-lucide-badge-check' },
+  not_verified: { label: 'Not verified', color: 'warning', icon: 'i-lucide-mail-warning' },
+  pending_invite: { label: 'Pending invite', color: 'info', icon: 'i-lucide-mail' },
+  expired_invite: { label: 'Expired invite', color: 'error', icon: 'i-lucide-mail-x' }
 }
 
 interface AssignableRole {
@@ -42,8 +52,9 @@ const canEditUser = computed(() => hasPermission('users.edit'))
 const canDeleteUser = computed(() => hasPermission('users.delete'))
 const canAssignRoles = computed(() => hasPermission('users.assign-roles'))
 const canVerifyUser = computed(() => hasPermission('users.verify'))
+const canInviteUsers = computed(() => hasPermission('users.invite'))
 const canOpenUser = computed(() =>
-  canEditUser.value || canDeleteUser.value || canAssignRoles.value || canVerifyUser.value
+  canEditUser.value || canDeleteUser.value || canAssignRoles.value || canVerifyUser.value || canInviteUsers.value
 )
 
 const canAssignRole = (role: AssignableRole) => {
@@ -73,7 +84,7 @@ const { user: currentUser } = useAuth()
 const page = ref(1)
 const pageSize = ref(50)
 const search = ref('')
-const sortField = ref<'display_name' | 'email' | 'verified' | 'created' | 'last_login'>('created')
+const sortField = ref<'display_name' | 'email' | 'status' | 'created' | 'last_login'>('created')
 const sortDir = ref<'asc' | 'desc'>('desc')
 
 const searchDebounced = ref('')
@@ -94,7 +105,7 @@ const queryKey = computed(() => ({
   dir: sortDir.value
 }))
 
-const { data, pending, error } = await useFetch<UsersResponse>('/api/admin/users', {
+const { data, pending, error, refresh } = await useFetch<UsersResponse>('/api/admin/users', {
   query: queryKey,
   watch: [queryKey],
   default: () => ({ rows: [], total: 0, page: 1, pageSize: 50 })
@@ -189,11 +200,15 @@ const columns: TableColumn<AdminUserRow>[] = [
     header: sortableHeader('Email', 'email')
   },
   {
-    accessorKey: 'verified',
-    header: sortableHeader('Verified', 'verified'),
-    cell: ({ row }) => row.original.verified
-      ? h(UIcon, { name: 'i-lucide-check', class: 'size-5 text-(--ui-success)' })
-      : h('span', { class: 'text-(--ui-text-muted)' }, '—')
+    accessorKey: 'status',
+    header: sortableHeader('Status', 'status'),
+    cell: ({ row }) => {
+      const meta = STATUS_META[row.original.status] ?? STATUS_META.active
+      return h(UBadge, { color: meta.color, variant: 'subtle', size: 'sm' }, () => [
+        h(UIcon, { name: meta.icon, class: 'size-3 mr-1' }),
+        meta.label
+      ])
+    }
   },
   {
     accessorKey: 'roles',
@@ -349,6 +364,7 @@ const handleSave = async () => {
 // Verification actions
 const markingVerified = ref(false)
 const sendingVerification = ref(false)
+const resendingInvite = ref(false)
 
 const handleMarkVerified = async () => {
   if (!selectedUser.value || selectedUser.value.verified) return
@@ -364,12 +380,12 @@ const handleMarkVerified = async () => {
       data.value = {
         ...data.value,
         rows: data.value.rows.map(r =>
-          r.id === userId ? { ...r, verified: true } : r
+          r.id === userId ? { ...r, verified: true, status: 'active' as UserStatus } : r
         )
       }
     }
     if (selectedUser.value) {
-      selectedUser.value = { ...selectedUser.value, verified: true }
+      selectedUser.value = { ...selectedUser.value, verified: true, status: 'active' }
     }
 
     toast.add({ title: 'User marked as verified', color: 'success' })
@@ -399,6 +415,91 @@ const handleSendVerification = async () => {
     })
   } finally {
     sendingVerification.value = false
+  }
+}
+
+const handleResendInvite = async () => {
+  if (!selectedUser.value) return
+  resendingInvite.value = true
+  try {
+    const userId = selectedUser.value.id
+    await $fetch(`/api/admin/users/${userId}/resend-invite`, { method: 'POST' })
+    toast.add({ title: 'Invite resent', color: 'success' })
+
+    if (selectedUser.value.status === 'expired_invite') {
+      const updated = { ...selectedUser.value, status: 'pending_invite' as UserStatus }
+      selectedUser.value = updated
+      if (data.value) {
+        data.value = {
+          ...data.value,
+          rows: data.value.rows.map(r => r.id === updated.id ? updated : r)
+        }
+      }
+    }
+  } catch (err: any) {
+    toast.add({
+      title: 'Resend failed',
+      description: err?.data?.statusMessage || err?.message || 'Failed to resend invite',
+      color: 'error'
+    })
+  } finally {
+    resendingInvite.value = false
+  }
+}
+
+// Invite modal
+const inviteModalOpen = ref(false)
+const inviting = ref(false)
+const inviteForm = reactive({
+  email: '',
+  display_name: '',
+  roles: [] as string[]
+})
+const inviteError = ref('')
+
+const openInviteModal = () => {
+  inviteForm.email = ''
+  inviteForm.display_name = ''
+  inviteForm.roles = []
+  inviteError.value = ''
+  inviteModalOpen.value = true
+}
+
+const toggleInviteRole = (name: string) => {
+  const idx = inviteForm.roles.indexOf(name)
+  if (idx === -1) {
+    inviteForm.roles = [...inviteForm.roles, name]
+  } else {
+    inviteForm.roles = inviteForm.roles.filter(r => r !== name)
+  }
+}
+
+const inviteValid = computed(() =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(inviteForm.email.trim()) &&
+  inviteForm.display_name.trim().length >= 2
+)
+
+const handleInvite = async () => {
+  if (!inviteValid.value || inviting.value) return
+  inviteError.value = ''
+  inviting.value = true
+  try {
+    const response = await $fetch<{ user: { email: string } }>('/api/admin/users', {
+      method: 'POST',
+      body: {
+        email: inviteForm.email.trim().toLowerCase(),
+        display_name: inviteForm.display_name.trim(),
+        roles: inviteForm.roles
+      }
+    })
+
+    toast.add({ title: 'Invite sent', description: response.user.email, color: 'success' })
+    inviteModalOpen.value = false
+    await refresh()
+  } catch (err: any) {
+    inviteError.value = err?.data?.statusMessage || err?.message || 'Failed to send invite'
+  } finally {
+    inviting.value = false
   }
 }
 
@@ -449,12 +550,22 @@ const handleDelete = async () => {
   <div>
     <div class="flex flex-wrap items-center justify-between gap-4 mb-6">
       <h1 class="text-3xl font-bold">Users</h1>
-      <UInput
-        v-model="search"
-        placeholder="Search name or email..."
-        icon="i-lucide-search"
-        class="w-full sm:w-80"
-      />
+      <div class="flex items-center gap-3 w-full sm:w-auto">
+        <UInput
+          v-model="search"
+          placeholder="Search name or email..."
+          icon="i-lucide-search"
+          class="flex-1 sm:w-80"
+        />
+        <UButton
+          v-if="canInviteUsers"
+          icon="i-lucide-user-plus"
+          color="primary"
+          @click="openInviteModal"
+        >
+          Invite user
+        </UButton>
+      </div>
     </div>
 
     <UAlert v-if="error" color="error" :title="error.statusMessage || 'Failed to load users'" class="mb-4" />
@@ -531,17 +642,14 @@ const handleDelete = async () => {
               </a>
               <div class="mt-2.5 flex items-center gap-2 flex-wrap">
                 <UBadge
-                  :color="selectedUser.verified ? 'success' : 'neutral'"
+                  :color="STATUS_META[selectedUser.status].color"
                   variant="subtle"
                   size="sm"
                 >
-                  <UIcon
-                    :name="selectedUser.verified ? 'i-lucide-badge-check' : 'i-lucide-circle-dashed'"
-                    class="size-3 mr-1"
-                  />
-                  {{ selectedUser.verified ? 'Verified' : 'Unverified' }}
+                  <UIcon :name="STATUS_META[selectedUser.status].icon" class="size-3 mr-1" />
+                  {{ STATUS_META[selectedUser.status].label }}
                 </UBadge>
-                <template v-if="!selectedUser.verified && canVerifyUser">
+                <template v-if="selectedUser.status === 'not_verified' && canVerifyUser">
                   <UButton
                     size="xs"
                     variant="soft"
@@ -563,6 +671,18 @@ const handleDelete = async () => {
                     @click="handleSendVerification"
                   >
                     Resend email
+                  </UButton>
+                </template>
+                <template v-else-if="(selectedUser.status === 'pending_invite' || selectedUser.status === 'expired_invite') && canInviteUsers">
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    color="primary"
+                    icon="i-lucide-mail"
+                    :loading="resendingInvite"
+                    @click="handleResendInvite"
+                  >
+                    Resend invite
                   </UButton>
                 </template>
               </div>
@@ -707,6 +827,120 @@ const handleDelete = async () => {
         </div>
       </template>
     </USlideover>
+
+    <UModal v-model:open="inviteModalOpen" :dismissible="!inviting">
+      <template #content>
+        <form class="p-6 space-y-5" @submit.prevent="handleInvite">
+          <div class="flex items-start gap-3">
+            <div class="shrink-0 size-10 rounded-full bg-(--ui-primary)/10 flex items-center justify-center">
+              <UIcon name="i-lucide-user-plus" class="size-5 text-(--ui-primary)" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <h3 class="text-lg font-semibold">Invite user</h3>
+              <p class="text-sm text-(--ui-text-muted) mt-1">
+                They'll receive an email with a link to set a password and activate their account. The link expires in 7 days.
+              </p>
+            </div>
+          </div>
+
+          <UAlert
+            v-if="inviteError"
+            color="error"
+            variant="soft"
+            :title="inviteError"
+            :close-button="{ icon: 'i-lucide-x', color: 'gray', variant: 'ghost' }"
+            @close="inviteError = ''"
+          />
+
+          <UFormField label="Email" required>
+            <UInput
+              v-model="inviteForm.email"
+              type="email"
+              placeholder="user@example.com"
+              size="lg"
+              :disabled="inviting"
+              autocomplete="off"
+              class="w-full"
+            />
+          </UFormField>
+
+          <UFormField label="Display name" required>
+            <UInput
+              v-model="inviteForm.display_name"
+              type="text"
+              placeholder="Their name"
+              size="lg"
+              :disabled="inviting"
+              autocomplete="off"
+              class="w-full"
+            />
+          </UFormField>
+
+          <div>
+            <label class="block text-sm font-medium mb-2">Roles</label>
+            <div class="space-y-2">
+              <label
+                v-for="role in availableRoles"
+                :key="role.name"
+                class="flex items-start gap-3 p-3 rounded-lg border border-(--ui-border) transition-colors"
+                :class="canAssignRole(role)
+                  ? 'hover:bg-(--ui-bg-accented) cursor-pointer'
+                  : 'opacity-60 cursor-not-allowed'"
+              >
+                <UTooltip
+                  :text="!canAssignRole(role)
+                    ? `You lack: ${missingPermsForRole(role).join(', ')}`
+                    : ''"
+                  :disabled="canAssignRole(role)"
+                >
+                  <UCheckbox
+                    :model-value="inviteForm.roles.includes(role.name)"
+                    :disabled="inviting || !canAssignRole(role)"
+                    @update:model-value="toggleInviteRole(role.name)"
+                  />
+                </UTooltip>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-medium">{{ role.name }}</span>
+                    <UBadge
+                      v-if="!canAssignRole(role)"
+                      color="warning"
+                      variant="subtle"
+                      size="sm"
+                    >
+                      Cannot assign
+                    </UBadge>
+                  </div>
+                  <div v-if="role.description" class="text-sm text-(--ui-text-muted) mt-0.5">
+                    {{ role.description }}
+                  </div>
+                </div>
+              </label>
+            </div>
+          </div>
+
+          <div class="flex items-center justify-end gap-3 pt-2">
+            <UButton
+              type="button"
+              variant="ghost"
+              color="neutral"
+              :disabled="inviting"
+              @click="inviteModalOpen = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              type="submit"
+              icon="i-lucide-send"
+              :loading="inviting"
+              :disabled="!inviteValid || inviting"
+            >
+              Send invite
+            </UButton>
+          </div>
+        </form>
+      </template>
+    </UModal>
 
     <UModal v-model:open="deleteModalOpen" :dismissible="!deleting">
       <template #content>

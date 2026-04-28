@@ -22,6 +22,7 @@ export const PERMISSIONS = [
   'users.delete',
   'users.assign-roles',
   'users.verify',
+  'users.invite',
   'roles.view',
   'roles.write',
   'roles.delete'
@@ -56,6 +57,10 @@ export const PERMISSION_META: Record<string, { title: string; description: strin
   'users.verify': {
     title: 'Verify users',
     description: 'Mark users as verified or resend verification emails.'
+  },
+  'users.invite': {
+    title: 'Invite users',
+    description: 'Send invitation emails that let new users set a password and activate an account.'
   },
   'roles.view': {
     title: 'View roles',

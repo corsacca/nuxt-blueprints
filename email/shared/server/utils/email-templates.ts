@@ -173,6 +173,37 @@ export const emailChangeVerificationTemplate: EmailTemplate = buildEmailTemplate
   (data) => `Confirm Your New Email Address - ${data.appName || 'App'}\n\nHello ${data.userName || 'User'}!\n\nYou requested to change your email from ${data.oldEmail} to ${data.newEmail}.\n\nConfirm: ${data.verificationUrl || '#'}\n\nThis link will expire in 24 hours.`
 )
 
+export const inviteEmailTemplate: EmailTemplate = buildEmailTemplate(
+  "You've been invited",
+  (data) => `
+    <h2 style="color: #333; margin-top: 0;">Hello ${data.userName || 'there'}!</h2>
+    <p style="color: #666; line-height: 1.6;">
+      ${data.inviterName ? `${data.inviterName} has invited you` : 'You have been invited'}
+      to join ${data.appName || 'the application'}.
+    </p>
+    <p style="color: #666; line-height: 1.6;">
+      Click the button below to set your password and activate your account.
+    </p>
+    <div style="text-align: center; margin-top: 30px;">
+      <a href="${data.inviteUrl || '#'}" style="${baseStyles.button}">
+        Accept Invitation
+      </a>
+    </div>
+    <p style="color: #666; line-height: 1.6; margin-top: 20px; font-size: 14px;">
+      If the button doesn't work, copy and paste this link into your browser:
+      <br>
+      <a href="${data.inviteUrl || '#'}" style="color: #000000; text-decoration: underline; word-break: break-all;">
+        ${data.inviteUrl || '#'}
+      </a>
+    </p>
+    <p style="color: #666; line-height: 1.6; margin-top: 20px; font-size: 14px;">
+      This invitation will expire in 7 days. If you weren't expecting this email,
+      you can safely ignore it.
+    </p>
+  `,
+  (data) => `You've been invited to ${data.appName || 'the application'}\n\nHello ${data.userName || 'there'}!\n\n${data.inviterName ? `${data.inviterName} has invited you` : 'You have been invited'} to join ${data.appName || 'the application'}.\n\nAccept your invitation and set your password: ${data.inviteUrl || '#'}\n\nThis invitation will expire in 7 days.`
+)
+
 export const passwordResetEmailTemplate: EmailTemplate = buildEmailTemplate(
   'Reset Your Password',
   (data) => `
@@ -207,7 +238,8 @@ export const emailTemplates = {
   bulk: bulkEmailTemplate,
   verification: verificationEmailTemplate,
   emailChangeVerification: emailChangeVerificationTemplate,
-  passwordReset: passwordResetEmailTemplate
+  passwordReset: passwordResetEmailTemplate,
+  invite: inviteEmailTemplate
 }
 
 export function renderEmailTemplate(

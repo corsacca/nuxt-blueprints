@@ -61,7 +61,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify current password
-  const isCurrentPasswordValid = await bcrypt.compare(current_password, current.password)
+  const isCurrentPasswordValid = current.password
+    ? await bcrypt.compare(current_password, current.password)
+    : false
 
   if (!isCurrentPasswordValid) {
     // Log failed password change attempt

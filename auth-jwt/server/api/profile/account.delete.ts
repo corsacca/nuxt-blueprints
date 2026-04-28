@@ -31,7 +31,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify password
-  const isPasswordValid = await bcrypt.compare(password, current.password)
+  const isPasswordValid = current.password
+    ? await bcrypt.compare(password, current.password)
+    : false
 
   if (!isPasswordValid) {
     // Log failed account deletion attempt

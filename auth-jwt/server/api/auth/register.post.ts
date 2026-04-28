@@ -48,6 +48,7 @@ export default defineEventHandler(async (event) => {
   const userId = randomUUID()
   const tokenKey = randomUUID()
   const now = new Date().toISOString()
+  const tokenExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
 
   // First-user check + insert run atomically inside a transaction, with a
   // session-level advisory lock to serialize concurrent registrations. The
@@ -88,6 +89,7 @@ export default defineEventHandler(async (event) => {
         display_name,
         avatar: '',
         token_key: tokenKey,
+        token_expires_at: firstUser ? null : tokenExpiresAt,
       })
       .execute()
 

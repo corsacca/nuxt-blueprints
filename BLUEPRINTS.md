@@ -153,12 +153,13 @@ JWT-based authentication with email verification, password reset, and user profi
 - `usePermissions` composable (`hasRole`, `hasPermission`, `isAdmin`)
 - Auth middleware (`app/middleware/auth.ts`)
 - Auth client plugin (`app/plugins/auth.client.ts`)
-- Pages: login, register, reset-password, profile
-- Server API routes: login, register, logout, me, verify, forgot-password, reset-password, verify-email-change (login + me return the user's resolved `permissions` alongside `roles`)
+- Pages: login, register, reset-password, accept-invite, profile
+- Server API routes: login, register, logout, me, verify, forgot-password, reset-password, verify-email-change, invite-info, accept-invite (login + me return the user's resolved `permissions` alongside `roles`)
 - Profile API routes: update display name, request email change, change password, delete account
 - JWT token utilities (`server/utils/auth.ts`)
 - **Baseline roles-and-permissions**: `app/utils/permissions.ts` registry, `app/utils/role-definitions.ts` with `admin` / `member` defaults, `server/utils/rbac.ts` with `requireRole`, `requirePermission`, and the resolver. First registered user auto-gets `roles: ['admin']`; everyone else gets `roles: ['member']`.
-- Migration adding password, verified, token_key, roles columns to users table
+- **Invite flow**: pending invitees live as `users` rows with `password IS NULL`; `token_key` doubles as the invite token, `token_expires_at` gives invite + verification links a 7-day expiry. Login/profile handlers refuse to authenticate against null-password rows. Matching admin "send invite" UI lives in `user-management`.
+- Migration adding password (nullable), verified, token_key, token_expires_at, roles columns to users table
 - Migration creating password_reset_requests table
 
 **Depends on:** `core`, an email provider block
@@ -183,10 +184,10 @@ Minimal admin-area shell: gated `/admin/*` layout, middleware, empty dashboard. 
 Admin UI for managing users.
 
 **Provides:**
-- `/admin/users` — paginated users list with search, sort, slideover for editing display name, assigning roles, and deleting
+- `/admin/users` — paginated users list with status badges (Active / Not verified / Pending invite / Expired invite), search, sort, an "Invite user" button in the header, and a slideover for editing display name, assigning roles, resending invites/verification, and deleting
 - `/admin/roles` — accordion view of every role with per-permission granted/not-granted indicators
-- Admin API routes: `GET /api/admin/users` (`users.view`), `PATCH /api/admin/users/[id]` (`users.edit`), `DELETE /api/admin/users/[id]` (`users.delete`), `PUT /api/admin/users/[id]/roles` (`users.assign-roles` + **subset delegation** — you can only assign roles whose permissions are a subset of your own), `POST /api/admin/users/[id]/verify` + `POST /api/admin/users/[id]/send-verification` (`users.verify`). Refuses to delete the caller or the last admin. All audit-logged.
-- UI rules: row clicks on `/admin/users` are disabled for users who hold none of the `users.*` action permissions; inside the slideover each section (Edit details, verify buttons, Roles editor, Delete action) is hidden unless the viewer holds the matching granular permission; unassignable roles in the role editor show a disabled checkbox with a tooltip listing the missing permissions
+- Admin API routes: `GET /api/admin/users` (`users.view`), `POST /api/admin/users` (`users.invite` + **subset delegation** — invite a new user by email, pre-assigning roles), `PATCH /api/admin/users/[id]` (`users.edit`), `DELETE /api/admin/users/[id]` (`users.delete`, also the cancel-invite path), `PUT /api/admin/users/[id]/roles` (`users.assign-roles` + **subset delegation** — you can only assign roles whose permissions are a subset of your own), `POST /api/admin/users/[id]/verify` + `POST /api/admin/users/[id]/send-verification` (`users.verify`), `POST /api/admin/users/[id]/resend-invite` (`users.invite`). Refuses to delete the caller or the last admin. All audit-logged.
+- UI rules: row clicks on `/admin/users` are disabled for users who hold none of the `users.*` action permissions; inside the slideover each section (Edit details, verify/resend buttons, Roles editor, Delete action) is hidden unless the viewer holds the matching granular permission; unassignable roles in the role editor show a disabled checkbox with a tooltip listing the missing permissions
 - Wiring note: adds "Users" + "Roles" nav entries to the admin layout (each hidden if the viewer lacks the corresponding `view` permission)
 
 **Depends on:** `core`, `auth-jwt`, `activity-log`, `admin`

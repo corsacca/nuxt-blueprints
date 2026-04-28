@@ -59,6 +59,8 @@ export default defineEventHandler(async (event) => {
       'users.verified',
       'users.created',
       'users.roles',
+      'users.password',
+      'users.token_expires_at',
       eb => eb
         .selectFrom('activity_logs')
         .select(eb2 => eb2.fn.max('activity_logs.timestamp').as('last_login'))
@@ -69,5 +71,20 @@ export default defineEventHandler(async (event) => {
     .where('users.id', '=', id)
     .executeTakeFirst()
 
-  return { user: updated }
+  if (!updated) {
+    return { user: null }
+  }
+
+  const { password, token_expires_at, ...rest } = updated
+  let status: 'active' | 'not_verified' | 'pending_invite' | 'expired_invite'
+  if (rest.verified) {
+    status = 'active'
+  } else if (password !== null) {
+    status = 'not_verified'
+  } else {
+    const expiresMs = token_expires_at ? new Date(token_expires_at).getTime() : 0
+    status = expiresMs > Date.now() ? 'pending_invite' : 'expired_invite'
+  }
+
+  return { user: { ...rest, status } }
 })
