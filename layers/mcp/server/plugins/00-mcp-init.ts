@@ -25,20 +25,24 @@ export default defineNitroPlugin((nitroApp) => {
   try {
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const sdkPkg = require('@modelcontextprotocol/sdk/package.json')
-    const installed = sdkPkg.version as string
-    if (compareVersions(installed, FLOOR) < 0) {
-      throw new Error(
-        `[mcp-layer] @modelcontextprotocol/sdk ${installed} is below required floor ${FLOOR}. `
-        + `Upgrade with: bun add @modelcontextprotocol/sdk@^${FLOOR}`
-      )
+    const installed = sdkPkg?.version
+    // Skip silently when the require returned an unexpected shape (e.g.
+    // a Vite-stub object in dev mode, or a package.json without a version
+    // field). The floor check is defense-in-depth; CI verifies out-of-band.
+    if (typeof installed === 'string' && installed.length > 0) {
+      if (compareVersions(installed, FLOOR) < 0) {
+        throw new Error(
+          `[mcp-layer] @modelcontextprotocol/sdk ${installed} is below required floor ${FLOOR}. `
+          + `Upgrade with: bun add @modelcontextprotocol/sdk@^${FLOOR}`
+        )
+      }
     }
   }
   catch (err) {
+    // Re-throw the deliberate floor-violation error.
     if (err instanceof Error && err.message.startsWith('[mcp-layer]')) throw err
-    // MODULE_NOT_FOUND from bundled-Nitro CJS — silent. Anything else logs.
-    if (!(err instanceof Error) || !err.message.includes('Cannot find module')) {
-      console.warn('[mcp-layer] could not verify SDK version:', err)
-    }
+    // Everything else (module-not-found in bundled Nitro, package.json
+    // shape mismatches in dev) is a non-fatal "couldn't verify" — silent.
   }
 
   // Pre-resolve the rate-limit config (deep-merge override + defaults) so

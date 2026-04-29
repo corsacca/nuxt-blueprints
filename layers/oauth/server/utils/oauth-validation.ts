@@ -1,5 +1,6 @@
-import { isPermission } from '~~/app/utils/permissions'
+import { isPermission, PERMISSIONS } from '~~/app/utils/permissions'
 import type { Permission } from '~~/app/utils/permissions'
+import { getRegisteredScopes } from './scopes-registry'
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
@@ -64,6 +65,36 @@ export function buildRedirect(redirectUri: string, params: Record<string, string
 // concept meaning "issue a refresh token"; not a permission).
 
 export const OFFLINE_ACCESS_SCOPE = 'offline_access'
+
+// The set of scopes the server advertises in /.well-known/* discovery and
+// accepts at DCR time. Three sources contribute, in priority order:
+//
+//   1. The dynamic registry (`scopes-registry.ts`). Layers self-register
+//      scopes their surface needs — e.g. the MCP layer's tool registry
+//      calls `registerScope(tool.scope)` when each tool registers, so
+//      a fresh deployment doesn't need to enumerate them in nuxt.config.
+//   2. The consumer's `runtimeConfig.oauthAdvertisedScopes` runtime config.
+//      Additive — for scopes outside any layer's auto-registered surface
+//      (e.g. an admin REST surface using `admin.access` directly).
+//   3. `offline_access` is always advertised when the dynamic-registry
+//      path is active, since refresh-token semantics belong to OAuth itself
+//      rather than any feature layer.
+//
+// Legacy fallback: if BOTH the registry and the consumer config are empty
+// (an OAuth-only deployment with no MCP tools and no manual override),
+// advertise the full PERMISSIONS catalog plus offline_access — the
+// pre-registry default. Once any contribution arrives, the legacy path
+// is replaced by the union above.
+export function getAdvertisedScopes(): string[] {
+  const dynamic = getRegisteredScopes()
+  const fromConfig = (useRuntimeConfig().oauthAdvertisedScopes as string[] | undefined) ?? []
+
+  if (dynamic.length === 0 && fromConfig.length === 0) {
+    return [...PERMISSIONS, OFFLINE_ACCESS_SCOPE]
+  }
+
+  return Array.from(new Set([...dynamic, ...fromConfig, OFFLINE_ACCESS_SCOPE]))
+}
 
 export function parseScopeString(raw: string | undefined | null): string[] {
   if (!raw) return []

@@ -17,9 +17,6 @@
 // - useStorage('cache') configured. Memory driver is fine for single-replica deployments;
 //   multi-replica needs a shared driver (Redis, KV, etc.) for buckets to be deployment-wide.
 import { fileURLToPath } from 'node:url'
-// Import from the leaf types file (no transitive imports) — see
-// mcp-rate-limit-types.ts for why.
-import type { McpRateLimitConfig } from './server/utils/mcp-rate-limit-types'
 
 const layerRoot = fileURLToPath(new URL('.', import.meta.url))
 
@@ -45,8 +42,13 @@ export default defineNuxtConfig({
     mcpServerVersion: process.env.MCP_SERVER_VERSION || '1.0.0',
     mcpReadScopes: [] as string[],
     // Empty default; consumers override via their own runtimeConfig.mcpRateLimits.
-    // Typed as McpRateLimitConfig so consumer-side overrides typecheck.
-    mcpRateLimits: {} as McpRateLimitConfig,
+    // Don't widen this with `as McpRateLimitConfig` — Nuxt's runtime-config
+    // type generation forbids `null` in RuntimeValue, and a consumer that
+    // sets `{ writesPerToken: { ... } }` would clash with the McpRateLimitConfig
+    // union (which permits `null` to disable the bucket). At runtime
+    // resolveRateLimitConfig() casts the value back to McpRateLimitConfig
+    // before merging with the defaults, so the runtime contract is preserved.
+    mcpRateLimits: {},
     mcpAdditionalOrigins: [] as string[]
   }
 })

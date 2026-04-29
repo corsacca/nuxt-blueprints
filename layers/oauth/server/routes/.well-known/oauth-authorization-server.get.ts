@@ -1,6 +1,5 @@
-import { PERMISSIONS } from '~~/app/utils/permissions'
 import { getOauthConfig } from '../../utils/oauth-config'
-import { OFFLINE_ACCESS_SCOPE } from '../../utils/oauth-validation'
+import { getAdvertisedScopes } from '../../utils/oauth-validation'
 
 export default defineEventHandler(() => {
   const cfg = getOauthConfig()
@@ -12,7 +11,7 @@ export default defineEventHandler(() => {
     grant_types_supported: ['authorization_code', 'refresh_token'],
     code_challenge_methods_supported: ['S256'],
     token_endpoint_auth_methods_supported: ['none'],
-    scopes_supported: [...PERMISSIONS, OFFLINE_ACCESS_SCOPE],
+    scopes_supported: getAdvertisedScopes(),
     response_modes_supported: ['query'],
     authorization_response_iss_parameter_supported: true
   }

@@ -36,7 +36,13 @@ export async function mcpLog(
       userAgent,
       metadata
     },
-    executor
+    executor,
+    // Inside a transaction the audit insert is part of the atomic
+    // operation — a swallowed failure would leave the data write
+    // committed without an audit row, which is the exact failure mode
+    // the audit log exists to prevent. Outside a transaction there is
+    // nothing to roll back; preserve the legacy fire-and-forget shape.
+    executor ? { throwOnError: true } : undefined
   )
 }
 

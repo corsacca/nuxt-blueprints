@@ -1,5 +1,6 @@
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { isPermission } from '~~/app/utils/permissions'
+import { registerScope } from '../../../oauth/server/utils/scopes-registry'
 import type { McpToolDef, McpResourceDef } from './define'
 
 export interface RegisteredTool {
@@ -71,11 +72,16 @@ export function createRegistry(): McpRegistry {
       // Dev: replace prior registration so HMR works without a server restart.
       console.info(`[mcp-layer] Replacing duplicate tool registration: ${tool.name}`)
       tools[existingIndex] = entry
+      registerScope(tool.scope)
       return
     }
 
     tools.push(entry)
     toolsByName.set(tool.name, tools.length - 1)
+    // Feed the OAuth-layer scope registry so /.well-known/* discovery
+    // and the DCR explicit-scope ceiling pick up this tool's scope
+    // without the consumer having to enumerate it in nuxt.config.
+    registerScope(tool.scope)
   }
 
   function registerResource(resource: McpResourceDef): void {
@@ -85,6 +91,7 @@ export function createRegistry(): McpRegistry {
       )
     }
     resources.push({ def: resource })
+    registerScope(resource.scope)
   }
 
   function __resetForTests(): void {

@@ -8,6 +8,7 @@ import {
   parseRedirectUri,
   parseScopeString,
   isValidScope,
+  getAdvertisedScopes,
   OFFLINE_ACCESS_SCOPE
 } from '../../utils/oauth-validation'
 import { logOauthEvent, OAUTH_EVENTS } from '../../utils/oauth-audit'
@@ -48,10 +49,42 @@ function normalizeClientName(name: unknown): string | null {
   return trimmed
 }
 
-// Default scope cap for dynamically registered clients: all permissions + offline_access.
-// Token issuance still intersects with the user's actual RBAC at consent time, so a
-// client cap of "all permissions" is safe — it just means the client isn't pre-restricted.
+// Default scope cap for dynamically registered clients.
+//
+// When the consumer sets `runtimeConfig.oauthDcrDefaultScopes`, that
+// curated list is used verbatim — any DCR registration omitting `scope`
+// is registered against exactly those scopes. This keeps consent
+// surfaces narrow and prevents new permissions from silently expanding
+// the default catalog.
+//
+// When unset, the legacy fallback applies: every project permission
+// plus offline_access. Token issuance still intersects with the user's
+// actual RBAC at consent time, so the cap of "all permissions" is safe
+// in single-purpose deployments — it just means the client isn't
+// pre-restricted at registration.
 function defaultDcrScopes(): string[] {
+  const cfg = useRuntimeConfig()
+  const override = cfg.oauthDcrDefaultScopes as unknown
+  if (Array.isArray(override)) {
+    const advertised = new Set(getAdvertisedScopes())
+    // Reject offline_access from the array — clients must request
+    // refresh tokens explicitly via the registration scope param.
+    for (const s of override) {
+      if (typeof s !== 'string') {
+        throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains a non-string entry: ${JSON.stringify(s)}`)
+      }
+      if (s === OFFLINE_ACCESS_SCOPE) {
+        throw new Error('[oauth] runtimeConfig.oauthDcrDefaultScopes must not include offline_access')
+      }
+      if (!isValidScope(s)) {
+        throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains an unknown scope: ${s}`)
+      }
+      if (!advertised.has(s)) {
+        throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains scope "${s}" which is not in oauthAdvertisedScopes`)
+      }
+    }
+    return [...override as string[]]
+  }
   return [...PERMISSIONS, OFFLINE_ACCESS_SCOPE]
 }
 
@@ -123,7 +156,11 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  // Scope defaulting + validation
+  // Scope defaulting + validation. Explicit scopes are clipped to the
+  // advertised set so a client that ignores discovery and asks for, say,
+  // `users.manage` directly is rejected — the consent screen would
+  // otherwise show permissions this server has no MCP-tool use for.
+  const advertised = new Set(getAdvertisedScopes())
   let scopeList: string[]
   if (typeof body.scope === 'string') {
     if (body.scope.length > MAX_SCOPE_LEN) {
@@ -133,6 +170,9 @@ export default defineEventHandler(async (event) => {
     for (const s of requested) {
       if (!isValidScope(s)) {
         return oauthError(event, 400, 'invalid_client_metadata', `Unknown scope: ${s}`)
+      }
+      if (!advertised.has(s)) {
+        return oauthError(event, 400, 'invalid_client_metadata', `Scope "${s}" is not advertised by this server`)
       }
     }
     scopeList = requested
