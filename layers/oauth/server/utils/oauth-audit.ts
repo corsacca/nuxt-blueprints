@@ -26,12 +26,21 @@ interface OauthLogOptions {
 
 // Never include token material (plaintext or hash) in metadata.
 // Safe to include: client_id, user_id, resource, scope, family_id, reasons, ids (non-secret UUID).
+//
+// IP is captured into metadata.ip when an H3Event is supplied so abuse
+// forensics ("which IP replayed this code/refresh token?") work without
+// per-call boilerplate. Caller-supplied metadata.ip wins (the DCR route
+// computes its own and passes it explicitly).
 export function logOauthEvent(options: OauthLogOptions): void {
   const userAgent = options.event3 ? (getHeader(options.event3, 'user-agent') || undefined) : undefined
+  const ip = options.event3 ? (getRequestIP(options.event3, { xForwardedFor: true }) || undefined) : undefined
+  const metadata = ip
+    ? { ip, ...(options.metadata ?? {}) }
+    : (options.metadata ?? {})
   logEvent({
     eventType: options.event,
     userId: options.userId,
     userAgent,
-    metadata: options.metadata ?? {}
+    metadata
   })
 }

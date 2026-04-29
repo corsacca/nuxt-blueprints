@@ -97,6 +97,14 @@ export default defineEventHandler(async (event) => {
     return buildRedirect(normalizedRedirect, params)
   }
 
+  // RFC 6749 doesn't bound `state`, but we store it in oauth_pending_requests
+  // and echo it on the redirect — uncapped strings are a free DoS / DB-bloat
+  // vector. 2 KB is well above any sane client (most use 16-32 byte nonces).
+  if (state !== null && state.length > 2048) {
+    await sendRedirect(event, errRedirect('invalid_request', 'state exceeds 2048 characters'))
+    return
+  }
+
   // PKCE
   if (codeChallengeMethod !== 'S256') {
     await sendRedirect(event, errRedirect('invalid_request', 'code_challenge_method must be S256'))

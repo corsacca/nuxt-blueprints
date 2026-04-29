@@ -175,11 +175,23 @@ async function handleAuthorizationCodeGrant(event: H3Event, cfg: ReturnType<type
 
   // Phase 2 — validate (code is already spent; no validation failure reverts it)
   if (claimed.client_id !== clientId) {
+    // Wrong-client at code redemption is a compromise signal — somebody
+    // other than the intended client got hold of the code. Cascade the
+    // family eagerly to mirror the refresh path's wrong_client handling
+    // (see handleRefreshTokenGrant). Not strictly required (the legitimate
+    // client's later attempt would trip the replay path), but symmetric
+    // and faster.
+    await revokeFamily(claimed.family_id, 'wrong_client')
     logOauthEvent({
-      event: OAUTH_EVENTS.TOKEN_DENIED,
+      event: OAUTH_EVENTS.AUTHORIZATION_CODE_REUSED,
       userId: claimed.user_id,
       event3: event,
-      metadata: { reason: 'client_mismatch', family_id: claimed.family_id }
+      metadata: {
+        family_id: claimed.family_id,
+        reason: 'wrong_client',
+        expected_client: claimed.client_id,
+        presented_client: clientId
+      }
     })
     return tokenError(event, 400, 'invalid_grant', 'client_id mismatch')
   }
