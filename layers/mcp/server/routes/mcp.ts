@@ -1,7 +1,8 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-// Cross-layer import to the sibling OAuth layer; see mcp-origin.ts for why
-// we use a relative path here instead of `~~/...` or `#imports`.
-import { requireValidBearer } from '../../../oauth/server/utils/oauth-bearer'
+// Cross-layer import to the OAuth layer; see mcp-origin.ts for why we use
+// the `#oauth/*` aliases declared in the OAuth layer's nuxt.config.ts
+// instead of `~~/...` or `#imports`.
+import { requireValidBearer } from '#oauth/bearer'
 import { buildMcpServer } from '../mcp-layer/server'
 import { assertAllowedOrigin } from '../utils/mcp-origin'
 

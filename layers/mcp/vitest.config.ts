@@ -15,8 +15,12 @@ export default defineConfig({
       '~~/server/utils/oauth-bearer': `${stubsDir}/server/utils/oauth-bearer.ts`,
       '~~/server/utils/oauth-config': `${stubsDir}/server/utils/oauth-config.ts`,
       '~~/server/database/schema': `${stubsDir}/server/database/schema.ts`,
-      '../../../oauth/server/utils/oauth-bearer': `${stubsDir}/server/utils/oauth-bearer.ts`,
-      '../../../oauth/server/utils/oauth-config': `${stubsDir}/server/utils/oauth-config.ts`
+      // Layer files import OAuth-layer utilities via `#oauth/*` aliases declared
+      // in the OAuth layer's nuxt.config.ts. Vitest doesn't load Nuxt configs,
+      // so we mirror those aliases here pointing at the test stubs.
+      '#oauth/bearer': `${stubsDir}/server/utils/oauth-bearer.ts`,
+      '#oauth/config': `${stubsDir}/server/utils/oauth-config.ts`,
+      '#oauth/scopes': `${stubsDir}/server/utils/scopes-registry.ts`
     }
   },
   test: {

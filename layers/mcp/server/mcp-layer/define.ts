@@ -1,8 +1,9 @@
 import type { ZodSchema } from 'zod'
 import type { H3Event } from 'h3'
-// Cross-layer type import to the sibling OAuth layer; see mcp-origin.ts for
-// why we use a relative path here instead of `~~/...` or `#imports`.
-import type { BearerAuth } from '../../../oauth/server/utils/oauth-bearer'
+// Cross-layer type import to the OAuth layer; see mcp-origin.ts for why we
+// use the `#oauth/*` aliases declared in the OAuth layer's nuxt.config.ts
+// instead of `~~/...` or `#imports`.
+import type { BearerAuth } from '#oauth/bearer'
 import type { Permission } from '~~/app/utils/permissions'
 
 // Optional per-tool rate-limit override. Layered on top of the default buckets.

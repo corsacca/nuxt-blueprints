@@ -1,6 +1,6 @@
 import { zodToJsonSchema } from 'zod-to-json-schema'
 import { isPermission } from '~~/app/utils/permissions'
-import { registerScope } from '../../../oauth/server/utils/scopes-registry'
+import { registerScope } from '#oauth/scopes'
 import type { McpToolDef, McpResourceDef } from './define'
 
 export interface RegisteredTool {

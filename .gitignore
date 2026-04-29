@@ -1,1 +1,6 @@
 layers/*/node_modules
+**/node_modules
+**/.nuxt
+**/.output
+**/.cache
+.DS_Store

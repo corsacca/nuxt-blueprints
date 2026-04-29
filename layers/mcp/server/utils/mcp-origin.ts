@@ -1,5 +1,6 @@
 import type { H3Event } from 'h3'
-// Cross-layer import to the sibling OAuth layer. We use a relative path
+// Cross-layer import to the OAuth layer via the `#oauth/*` aliases that the
+// OAuth layer declares in its own nuxt.config.ts. We use those aliases
 // instead of `~~/...` or `#imports` because:
 //   - `~~/...` resolves only to the consumer-project root in tsconfig paths,
 //     not to layer trees, so OAuth-layer files aren't reachable that way at
@@ -7,11 +8,12 @@ import type { H3Event } from 'h3'
 //   - `#imports` re-exports OAuth-layer values, but TypeScript's bundler
 //     resolution doesn't trace exports through the absolute paths in the
 //     generated nitro-imports.d.ts when imported from layer files.
-// The relative path assumes both layers ship as siblings under the same
-// parent directory (e.g. base-code/layers/{mcp,oauth}). If the OAuth layer
-// moves or is published as a different package, this import is the seam
-// that needs updating.
-import { getOauthConfig } from '../../../oauth/server/utils/oauth-config'
+// `#oauth/*` is a plain file-path alias (analogous to MCP's own `#mcp-layer`
+// alias) and resolves to the OAuth layer wherever the consumer placed it,
+// which means the layers don't need to be on-disk siblings. When a consumer
+// extends both layers, Nuxt merges the OAuth layer's `alias` and tsconfig
+// `paths` entries into the consumer's resolution.
+import { getOauthConfig } from '#oauth/config'
 
 // MCP spec recommends Origin validation on HTTP requests as defense against
 // CSRF / DNS rebinding. CORS governs what browsers *expose*, not what reaches
