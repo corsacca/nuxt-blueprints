@@ -14,7 +14,8 @@ export default defineNitroPlugin(() => {
   }
 
   if (!cfg.oauthConsentCookieSecret || String(cfg.oauthConsentCookieSecret).length < 32) {
-    throw new Error('[oauth-layer] OAUTH_CONSENT_COOKIE_SECRET is required and must be at least 32 characters. See layer README.')
+    console.warn('[oauth-layer] OAUTH_CONSENT_COOKIE_SECRET not set or shorter than 32 chars — OAuth server disabled. See layer README.')
+    return
   }
 
   const issuer = normalizeIssuer(String(siteUrl))
