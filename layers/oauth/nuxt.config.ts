@@ -40,6 +40,11 @@ export default defineNuxtConfig({
     oauthAuthorizationCodeTtlSeconds: 60,
     oauthPendingRequestTtlSeconds: 300,
     oauthAllowDynamicClientRegistration: process.env.OAUTH_ALLOW_DCR === 'true',
+    // When true, the layer's default `oauth:consent-granted` email
+    // subscriber (server/plugins/oauth-notify.ts) is skipped. Set
+    // this when the consumer ships its own subscriber (branded HTML,
+    // i18n copy, alternative transport).
+    oauthDisableConsentGrantedEmail: false,
     oauth: {
       loginPath: '/login'
     }

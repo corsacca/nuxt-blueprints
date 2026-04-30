@@ -109,6 +109,31 @@ export default defineEventHandler(async (event) => {
     }
   })
 
+  // Fire `oauth:consent-granted` so the consumer project can react
+  // (typically: email the user "X was just connected to your account").
+  // Fires only on explicit consent — the auto-issue short-circuit in
+  // authorize.get.ts (existing-consent-covers-scope path) does not
+  // hit this handler, so silent re-issues do not spam the user.
+  //
+  // Fetched here (one extra query) so subscribers don't all need to
+  // re-resolve the client. Errors in subscribers are swallowed by
+  // Nitro's hook runner — a broken email path must never block grant.
+  const clientMeta = await db
+    .selectFrom('oauth_clients')
+    .select(['client_name', 'dynamic'])
+    .where('client_id', '=', pending.client_id)
+    .executeTakeFirst()
+
+  await useNitroApp().hooks.callHook('oauth:consent-granted', {
+    userId: pending.user_id,
+    clientId: pending.client_id,
+    clientName: clientMeta?.client_name ?? pending.client_id,
+    dynamic: Boolean(clientMeta?.dynamic),
+    scope: pending.scope,
+    resource: pending.resource,
+    event
+  })
+
   const { code } = await issueCode({
     clientId: pending.client_id,
     userId: pending.user_id,

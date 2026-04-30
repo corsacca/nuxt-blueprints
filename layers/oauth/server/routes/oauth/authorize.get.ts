@@ -13,6 +13,7 @@ import {
 import {
   buildRedirect,
   parseRedirectUri,
+  matchesRegisteredRedirect,
   filterScopesByPermissions,
   hasAnyPermissionScope,
   isScopeSubset,
@@ -78,7 +79,10 @@ export default defineEventHandler(async (event) => {
     return sendHtmlError(event, 400, 'Invalid authorization request', `<code>redirect_uri</code> is invalid: ${parsedRedirect.error}`)
   }
   const normalizedRedirect = parsedRedirect.serialized
-  if (!client.redirect_uris.includes(normalizedRedirect)) {
+  // RFC 8252 §7.3: loopback URIs match across ports — see
+  // matchesRegisteredRedirect for the fuzzy semantics. Non-loopback
+  // URIs still require exact-string match against the registered set.
+  if (!matchesRegisteredRedirect(normalizedRedirect, client.redirect_uris)) {
     return sendHtmlError(event, 400, 'Invalid authorization request', 'The provided <code>redirect_uri</code> is not registered for this client.')
   }
 

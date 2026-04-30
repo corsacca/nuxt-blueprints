@@ -44,7 +44,19 @@ function buildWwwAuthenticate(opts: { error?: string, scope?: string }): string 
   if (opts.scope) parts.push(`scope="${opts.scope}"`)
   const cfg = tryGetOauthConfig()
   if (cfg) {
-    const resourceMeta = `${cfg.issuer}/.well-known/oauth-protected-resource`
+    // Per RFC 9728 §3.1 / §5.1, resources with a path component
+    // expose their metadata at /.well-known/oauth-protected-resource/<path>.
+    // Pointing clients at this path-specific URL (rather than the
+    // path-less form) keeps discovery aligned with what MCP 2025-06-18+
+    // clients fetch by default.
+    let resourceMeta = `${cfg.issuer}/.well-known/oauth-protected-resource`
+    try {
+      const path = new URL(cfg.mcpResource).pathname.replace(/^\/+|\/+$/g, '')
+      if (path) resourceMeta = `${resourceMeta}/${path}`
+    }
+    catch {
+      // Fall back to path-less form on URL parse failure.
+    }
     parts.push(`resource_metadata="${resourceMeta}"`)
   }
   return `Bearer ${parts.join(', ')}`

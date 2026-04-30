@@ -19,6 +19,7 @@ import {
   OFFLINE_ACCESS_SCOPE
 } from '../../utils/oauth-validation'
 import { logOauthEvent, OAUTH_EVENTS } from '../../utils/oauth-audit'
+import { revokeFamily } from '../../utils/oauth-revoke'
 
 type TokenErrorCode
   = | 'invalid_request'
@@ -45,30 +46,6 @@ function parseUrlEncoded(raw: string): Record<string, string> {
     out[k] = v
   }
   return out
-}
-
-async function revokeFamily(familyId: string, reason: string) {
-  await db.transaction().execute(async (trx) => {
-    await trx
-      .updateTable('oauth_token_families')
-      .set({ revoked: true, revoked_reason: reason, revoked_at: new Date() })
-      .where('family_id', '=', familyId)
-      .execute()
-
-    await trx
-      .updateTable('oauth_access_tokens')
-      .set({ revoked: true, revoked_reason: reason })
-      .where('family_id', '=', familyId)
-      .where('revoked', '=', false)
-      .execute()
-
-    await trx
-      .updateTable('oauth_refresh_tokens')
-      .set({ revoked: true, revoked_reason: reason })
-      .where('family_id', '=', familyId)
-      .where('revoked', '=', false)
-      .execute()
-  })
 }
 
 export default defineEventHandler(async (event) => {

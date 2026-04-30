@@ -3,6 +3,8 @@ import { logEvent } from '~~/server/utils/activity-logger'
 
 export const OAUTH_EVENTS = {
   CLIENT_REGISTERED: 'oauth.client_registered',
+  CLIENT_ENABLED: 'oauth.client_enabled',
+  CLIENT_DISABLED: 'oauth.client_disabled',
   CONSENT_GRANTED: 'oauth.consent_granted',
   CONSENT_DENIED: 'oauth.consent_denied',
   CONSENT_REVOKED: 'oauth.consent_revoked',
@@ -14,7 +16,8 @@ export const OAUTH_EVENTS = {
   REFRESH_ROTATED: 'oauth.refresh_rotated',
   REFRESH_REUSED: 'oauth.refresh_reused',
   TOKEN_REVOKED: 'oauth.token_revoked',
-  TOKEN_ISSUANCE_ABORTED_FAMILY_REVOKED: 'oauth.token_issuance_aborted_family_revoked'
+  TOKEN_ISSUANCE_ABORTED_FAMILY_REVOKED: 'oauth.token_issuance_aborted_family_revoked',
+  FAMILY_REVOKED_BY_ADMIN: 'oauth.family_revoked_by_admin'
 } as const
 
 interface OauthLogOptions {

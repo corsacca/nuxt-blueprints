@@ -13,9 +13,51 @@ Routes:
 - `GET /.well-known/oauth-authorization-server` — RFC 8414
 - `GET /.well-known/oauth-protected-resource` — RFC 9728
 
+User-facing routes (require `requireAuth`):
+- `GET /api/oauth/connected-apps` — list the current user's active grants
+- `DELETE /api/oauth/connected-apps/:client_id` — revoke consent + cascade families
+
+Admin routes (require `users.manage`):
+- `GET /api/admin/oauth/clients` — paginated list with consent + family counts
+- `PATCH /api/admin/oauth/clients/:client_id` — toggle `enabled`
+- `GET /api/admin/oauth/families` — active token families with user/client joins
+- `DELETE /api/admin/oauth/families/:family_id` — revoke a single family
+- `GET /api/admin/oauth/events` — paginated `oauth.*` activity log
+
+Pages (auto-discovered from the layer):
+- `/admin/oauth` — single-page dashboard for clients/families/events. Uses `definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })`. Consumer must define both.
+
+Components (auto-imported):
+- `<OauthConnectedApps />` — drop-in `UCard` for the user's profile page. Lists active grants with revoke confirmation. Self-contained.
+
 Server utilities (auto-imported as Nitro server utils):
 - `requireBearerScope(event, scope)` — guard an MCP/API endpoint with a required scope
+- `revokeFamily(familyId, reason)` — kill all tokens in a family
+- `revokeConsentAndFamilies(userId, clientId, reason)` — wipe everything for one user × client
 - `issueCode(...)` — internal use by routes; not typically called directly
+
+## Hooks
+
+The layer fires Nitro hooks at significant moments. Subscribe in a consumer-side server plugin:
+
+| Hook | Payload | Fires when |
+|---|---|---|
+| `oauth:consent-granted` | `{ userId, clientId, clientName, dynamic, scope, resource, event }` | A user explicitly approves a new consent (auto-issue short-circuit does **not** fire this) |
+
+The layer already ships a default subscriber for `oauth:consent-granted` (sends an anti-phishing email — see consumer requirement 7a). Subscribe to the same hook from the consumer if you want to add behavior **alongside** the default email (e.g. Slack notification, audit pipeline, ChatOps):
+
+```ts
+// server/plugins/20-oauth-notify-extra.ts
+export default defineNitroPlugin((nitroApp) => {
+  nitroApp.hooks.hook('oauth:consent-granted', async (data) => {
+    // your additional behavior
+  })
+})
+```
+
+To **replace** the default email (different copy, branding, i18n, transport), set `runtimeConfig.oauthDisableConsentGrantedEmail = true` and ship your own subscriber.
+
+Hook subscriber failures must be swallowed by the subscriber — Nitro's hook runner re-raises errors and the OAuth grant flow should never block on email/notification failures.
 
 Database:
 - 7 tables (`oauth_clients`, `oauth_token_families`, `oauth_pending_requests`, `oauth_authorization_codes`, `oauth_access_tokens`, `oauth_refresh_tokens`, `oauth_consents`) created via the layer's migration `oauth_001_create_oauth_tables.ts`.
@@ -95,6 +137,24 @@ Must export:
 ```ts
 export function logEvent(opts: { eventType: string; userId?: string; userAgent?: string; metadata?: Record<string, unknown> }): void
 ```
+
+### 7a. Email transport at `~~/server/utils/email.ts`
+
+Must export:
+```ts
+export async function sendEmail(opts: { to: string | string[]; subject: string; html: string; text?: string; from?: string }): Promise<boolean>
+```
+
+The layer ships a default `oauth:consent-granted` subscriber (`server/plugins/oauth-notify.ts`) that emails the user any time a new client is authorised on their account ("X was just connected to your account — if this wasn't you, revoke immediately"). It calls `sendEmail` directly with inline HTML/text — no template registry coupling — so consumers only need a working transport.
+
+To opt out (e.g. ship your own subscriber with branded HTML or i18n copy), set `runtimeConfig.oauthDisableConsentGrantedEmail = true` in your consumer's `nuxt.config.ts`.
+
+### 7b. Admin layout + middleware (only if you mount `/admin/oauth`)
+
+The shipped `app/pages/admin/oauth.vue` declares `definePageMeta({ layout: 'admin', middleware: ['auth', 'admin'] })`. Your consumer must define both:
+- `app/layouts/admin.vue` — the admin chrome (sidebar, etc.).
+- `app/middleware/auth.ts` and `app/middleware/admin.ts` — gate non-authenticated and non-admin users.
+- A sidebar entry pointing to `/admin/oauth`, conditional on `hasPermission('users.manage')`.
 
 ### 8. Rate limiter at `~~/server/utils/rate-limit.ts`
 

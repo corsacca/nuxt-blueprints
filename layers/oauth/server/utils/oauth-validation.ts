@@ -42,14 +42,60 @@ export function parseRedirectUri(input: string): ParsedRedirectUri {
     return { valid: false, error: 'redirect_uri must not contain userinfo' }
   }
   const isHttps = url.protocol === 'https:'
-  const isDevLoopback
+  // RFC 8252 §7.3 — loopback http redirect URIs are permitted in any
+  // environment for native installed apps. The historical dev-only
+  // gate was conflating "no http to public hosts" (correct) with
+  // "no http loopback in prod" (out of spec, blocks every native
+  // MCP client).
+  const isLoopback
     = url.protocol === 'http:'
-      && process.env.NODE_ENV !== 'production'
       && LOOPBACK_HOSTS.has(url.hostname.toLowerCase())
-  if (!isHttps && !isDevLoopback) {
-    return { valid: false, error: 'redirect_uri must use https (http allowed only for loopback in dev)' }
+  if (!isHttps && !isLoopback) {
+    return { valid: false, error: 'redirect_uri must use https (http allowed only for loopback)' }
   }
   return { valid: true, serialized: url.toString() }
+}
+
+// RFC 8252 §7.3 — for loopback redirect URIs the port is allowed to
+// vary between registration and the authorize request, since native
+// apps may pick an ephemeral port per session. Exact-string match is
+// the fast path (the typical case where a client pins a port at DCR
+// time and reuses it); we only fall back to port-fuzzy matching when
+// both the supplied URI and at least one registered URI are loopback.
+//
+// Hostname is required to match (we don't cross-match `localhost`
+// with `127.0.0.1` — clients that want both should register both).
+// Path and query are required to match.
+export function matchesRegisteredRedirect(supplied: string, registered: readonly string[]): boolean {
+  if (registered.includes(supplied)) return true
+
+  let suppliedUrl: URL
+  try {
+    suppliedUrl = new URL(supplied)
+  }
+  catch {
+    return false
+  }
+
+  const isSuppliedLoopback
+    = suppliedUrl.protocol === 'http:'
+      && LOOPBACK_HOSTS.has(suppliedUrl.hostname.toLowerCase())
+  if (!isSuppliedLoopback) return false
+
+  return registered.some((r) => {
+    let u: URL
+    try {
+      u = new URL(r)
+    }
+    catch {
+      return false
+    }
+    return u.protocol === 'http:'
+      && LOOPBACK_HOSTS.has(u.hostname.toLowerCase())
+      && u.hostname.toLowerCase() === suppliedUrl.hostname.toLowerCase()
+      && u.pathname === suppliedUrl.pathname
+      && u.search === suppliedUrl.search
+  })
 }
 
 export function buildRedirect(redirectUri: string, params: Record<string, string>): string {

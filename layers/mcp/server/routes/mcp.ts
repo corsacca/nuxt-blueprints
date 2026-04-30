@@ -54,18 +54,18 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Invalid JSON' })
   }
 
-  // 6. Defense-in-depth protocol-version check on every non-initialize call.
+  // 6. Defense-in-depth protocol-version check. Validate the value
+  //    when present, but DO NOT require the header on every non-
+  //    initialize call — many real-world stdio bridges (mcp-remote
+  //    and similar wrappers) don't propagate the negotiated version
+  //    on every forwarded POST. The SDK still enforces protocol
+  //    semantics internally during request handling, so missing the
+  //    header at the route boundary is not a security gap.
   //    Initialize requests carry no MCP-Protocol-Version header per spec.
   if (protocolVersion !== undefined && !SUPPORTED_PROTOCOL_VERSIONS.has(protocolVersion)) {
     throw createError({
       statusCode: 400,
       statusMessage: `Unsupported MCP-Protocol-Version: ${protocolVersion}`
-    })
-  }
-  if (!isInitializeRequest(body) && protocolVersion === undefined) {
-    throw createError({
-      statusCode: 400,
-      statusMessage: 'Missing required header: MCP-Protocol-Version'
     })
   }
 
@@ -91,12 +91,3 @@ export default defineEventHandler(async (event) => {
     await transport.close().catch(() => {})
   }
 })
-
-function isInitializeRequest(body: unknown): boolean {
-  if (Array.isArray(body)) {
-    return body.some(isInitializeRequest)
-  }
-  if (typeof body !== 'object' || body === null) return false
-  const method = (body as { method?: unknown }).method
-  return method === 'initialize'
-}
