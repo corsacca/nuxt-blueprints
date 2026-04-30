@@ -105,6 +105,175 @@ const formatDate = (iso: string): string =>
 const scopeChips = (scope: string): string[] =>
   scope.split(/\s+/).filter(Boolean)
 
+// ── Connection guide (collapsible + tabs) ──────────────────────────
+//
+// One tab per major MCP client. Each tab carries a ready-to-paste
+// config snippet pointing at this site's MCP endpoint. Pulled from
+// runtimeConfig.public.siteUrl so the snippet is always live for the
+// deployment the user is looking at — no copy-paste-and-replace.
+
+const config = useRuntimeConfig()
+const mcpUrl = computed(() => {
+  const base = (config.public.siteUrl as string) || ''
+  if (!base) return '/mcp'
+  return `${base.replace(/\/$/, '')}/mcp`
+})
+
+interface ClientGuide {
+  key: string
+  label: string
+  icon: string
+  description: string
+  // Natural-language prompt the user can paste into the client (or
+  // any AI assistant with filesystem/CLI access) to wire up the MCP.
+  // The "AI does it" path — meant as the primary instruction.
+  aiPrompt: string
+  // Where the manual config snippet should be pasted/run.
+  manualLocation: string
+  // The literal config snippet for the manual path.
+  manualSnippet: string
+  manualLanguage: 'bash' | 'json' | 'toml'
+}
+
+const clientGuides = computed<ClientGuide[]>(() => {
+  const url = mcpUrl.value
+  return [
+    {
+      key: 'claude-code',
+      label: 'Claude Code',
+      icon: 'i-lucide-terminal',
+      description: 'Native HTTP + OAuth.',
+      aiPrompt: `Add the doxa-cms MCP server at ${url} using HTTP transport, then restart to authenticate.`,
+      manualLocation: 'Run from the project folder where you want it available:',
+      manualLanguage: 'bash',
+      manualSnippet: `claude mcp add doxa-cms --transport http ${url}`
+    },
+    {
+      key: 'claude-desktop',
+      label: 'Claude Desktop',
+      icon: 'i-lucide-monitor',
+      description: 'Stdio-only. Bridges OAuth + HTTP via mcp-remote.',
+      aiPrompt: `Edit my Claude Desktop config (~/Library/Application Support/Claude/claude_desktop_config.json on macOS, %APPDATA%\\Claude\\claude_desktop_config.json on Windows) to add an MCP server named "doxa-cms" that runs \`npx -y mcp-remote ${url}\`.`,
+      manualLocation: 'Edit ~/Library/Application Support/Claude/claude_desktop_config.json (macOS) or %APPDATA%\\Claude\\claude_desktop_config.json (Windows):',
+      manualLanguage: 'json',
+      manualSnippet: JSON.stringify({
+        mcpServers: {
+          'doxa-cms': {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', url]
+          }
+        }
+      }, null, 2)
+    },
+    {
+      key: 'codex',
+      label: 'Codex',
+      icon: 'i-lucide-square-terminal',
+      description: 'Stdio-only. Bridges OAuth + HTTP via mcp-remote.',
+      aiPrompt: `Add an MCP server named "doxa-cms" to my ~/.codex/config.toml that runs \`npx -y mcp-remote ${url}\`.`,
+      manualLocation: 'Edit ~/.codex/config.toml:',
+      manualLanguage: 'toml',
+      manualSnippet: `[mcp_servers.doxa-cms]\ncommand = "npx"\nargs = ["-y", "mcp-remote", "${url}"]`
+    },
+    {
+      key: 'cursor',
+      label: 'Cursor',
+      icon: 'i-lucide-mouse-pointer-2',
+      description: 'Native HTTP + OAuth.',
+      aiPrompt: `Add an MCP server named "doxa-cms" pointing at ${url} to my Cursor MCP config (~/.cursor/mcp.json).`,
+      manualLocation: 'Settings → MCP → Add new MCP server, or edit ~/.cursor/mcp.json:',
+      manualLanguage: 'json',
+      manualSnippet: JSON.stringify({
+        mcpServers: {
+          'doxa-cms': {
+            url
+          }
+        }
+      }, null, 2)
+    },
+    {
+      key: 'vscode',
+      label: 'VS Code',
+      icon: 'i-lucide-code-2',
+      description: 'Native HTTP + OAuth via Copilot Chat (1.99+).',
+      aiPrompt: `Add an MCP server named "doxa-cms" of type http pointing at ${url} to .vscode/mcp.json so I can use it in this workspace.`,
+      manualLocation: 'Add to .vscode/mcp.json (workspace) or your user settings:',
+      manualLanguage: 'json',
+      manualSnippet: JSON.stringify({
+        servers: {
+          'doxa-cms': {
+            type: 'http',
+            url
+          }
+        }
+      }, null, 2)
+    },
+    {
+      key: 'gemini',
+      label: 'Gemini CLI',
+      icon: 'i-lucide-sparkles',
+      description: 'Bridges OAuth + HTTP via mcp-remote.',
+      aiPrompt: `Add an MCP server named "doxa-cms" to my ~/.gemini/settings.json that runs \`npx -y mcp-remote ${url}\`.`,
+      manualLocation: 'Add to ~/.gemini/settings.json:',
+      manualLanguage: 'json',
+      manualSnippet: JSON.stringify({
+        mcpServers: {
+          'doxa-cms': {
+            command: 'npx',
+            args: ['-y', 'mcp-remote', url]
+          }
+        }
+      }, null, 2)
+    }
+  ]
+})
+
+interface TabItem {
+  label: string
+  value: string
+  icon: string
+  description: string
+  aiPrompt: string
+  manualLocation: string
+  manualSnippet: string
+  manualLanguage: string
+}
+
+const tabItems = computed<TabItem[]>(() =>
+  clientGuides.value.map(g => ({
+    label: g.label,
+    value: g.key,
+    icon: g.icon,
+    description: g.description,
+    aiPrompt: g.aiPrompt,
+    manualLocation: g.manualLocation,
+    manualSnippet: g.manualSnippet,
+    manualLanguage: g.manualLanguage
+  }))
+)
+
+const activeTab = ref<string>('claude-code')
+const guideOpen = ref<boolean>(false)
+const manualOpen = ref<Record<string, boolean>>({})
+const copiedKey = ref<string | null>(null)
+
+async function copyText(text: string, key: string): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(text)
+    copiedKey.value = key
+    toast.add({
+      title: 'Copied',
+      color: 'success'
+    })
+    setTimeout(() => {
+      if (copiedKey.value === key) copiedKey.value = null
+    }, 2000)
+  }
+  catch {
+    toast.add({ title: 'Copy failed', color: 'error' })
+  }
+}
+
 // ── Table columns ───────────────────────────────────────────────────
 const columns: TableColumn<ConnectedApp>[] = [
   {
@@ -213,6 +382,103 @@ const columns: TableColumn<ConnectedApp>[] = [
         :empty-state="{ icon: 'i-lucide-link-2-off', label: 'No apps connected' }"
       />
     </div>
+
+    <!-- Connection guide ─────────────────────────────────────────── -->
+    <UCollapsible
+      v-model:open="guideOpen"
+      class="mt-6 border-t border-(--ui-border) pt-4"
+    >
+      <UButton
+        :icon="guideOpen ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+        variant="ghost"
+        color="neutral"
+        block
+        class="justify-start gap-2"
+      >
+        Connect a new client
+      </UButton>
+      <template #content>
+        <div class="mt-4 space-y-4">
+          <p class="text-sm text-(--ui-text-muted)">
+            Pick your client below. Each option points at this site's MCP endpoint:
+            <code class="text-xs font-mono px-1.5 py-0.5 rounded bg-(--ui-bg-elevated) border border-(--ui-border)">{{ mcpUrl }}</code>
+            On first connect, you'll be redirected here to approve the grant.
+          </p>
+
+          <USelect
+            v-model="activeTab"
+            :items="tabItems"
+            class="w-full sm:w-64"
+            placeholder="Select a client"
+          />
+
+          <div
+            v-for="item in tabItems"
+            :key="item.value"
+            v-show="item.value === activeTab"
+            class="space-y-4"
+          >
+            <p class="text-sm text-(--ui-text-muted)">{{ item.description }}</p>
+
+            <!-- AI-driven path: copy the prompt and paste into the client. -->
+            <div>
+              <div class="flex items-center gap-2 mb-2">
+                <UIcon name="i-lucide-sparkles" class="size-4 text-(--ui-primary)" />
+                <h4 class="text-sm font-semibold">Ask your AI to set it up</h4>
+              </div>
+              <div class="relative">
+                <div class="text-sm p-4 pr-14 rounded-lg bg-(--ui-primary)/5 border border-(--ui-primary)/20 italic">
+                  {{ item.aiPrompt }}
+                </div>
+                <UButton
+                  :icon="copiedKey === `${item.value}-prompt` ? 'i-lucide-check' : 'i-lucide-copy'"
+                  :color="copiedKey === `${item.value}-prompt` ? 'success' : 'neutral'"
+                  variant="soft"
+                  size="xs"
+                  class="absolute top-2 right-2"
+                  :aria-label="`Copy ${item.label} prompt`"
+                  @click="copyText(item.aiPrompt, `${item.value}-prompt`)"
+                >
+                  {{ copiedKey === `${item.value}-prompt` ? 'Copied' : 'Copy' }}
+                </UButton>
+              </div>
+            </div>
+
+            <!-- Manual path: collapsed by default. -->
+            <UCollapsible v-model:open="manualOpen[item.value]">
+              <UButton
+                :icon="manualOpen[item.value] ? 'i-lucide-chevron-down' : 'i-lucide-chevron-right'"
+                variant="ghost"
+                color="neutral"
+                size="sm"
+                class="gap-2"
+              >
+                Manual setup
+              </UButton>
+              <template #content>
+                <div class="mt-3 space-y-2">
+                  <p class="text-xs text-(--ui-text-muted)">{{ item.manualLocation }}</p>
+                  <div class="relative">
+                    <pre class="text-xs font-mono p-4 pr-14 rounded-lg bg-(--ui-bg-elevated) border border-(--ui-border) overflow-x-auto whitespace-pre"><code>{{ item.manualSnippet }}</code></pre>
+                    <UButton
+                      :icon="copiedKey === `${item.value}-manual` ? 'i-lucide-check' : 'i-lucide-copy'"
+                      :color="copiedKey === `${item.value}-manual` ? 'success' : 'neutral'"
+                      variant="soft"
+                      size="xs"
+                      class="absolute top-2 right-2"
+                      :aria-label="`Copy ${item.label} config`"
+                      @click="copyText(item.manualSnippet, `${item.value}-manual`)"
+                    >
+                      {{ copiedKey === `${item.value}-manual` ? 'Copied' : 'Copy' }}
+                    </UButton>
+                  </div>
+                </div>
+              </template>
+            </UCollapsible>
+          </div>
+        </div>
+      </template>
+    </UCollapsible>
 
     <UModal v-model:open="revokeOpen" :dismissible="!revoking">
       <template #content>
