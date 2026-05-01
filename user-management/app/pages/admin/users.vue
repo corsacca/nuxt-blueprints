@@ -30,6 +30,9 @@ const STATUS_META: Record<UserStatus, { label: string; color: 'success' | 'warni
 
 const availableRoles = await useAssignableRoles()
 
+const roleLabel = (key: string) =>
+  availableRoles.value.find(r => r.key === key)?.name ?? key
+
 const { permissions: myPermissions, hasPermission } = usePermissions()
 
 const canEditUser = computed(() => hasPermission('users.edit'))
@@ -208,7 +211,7 @@ const columns: TableColumn<AdminUserRow>[] = [
           color: r === 'admin' ? 'warning' : 'neutral',
           variant: 'subtle',
           size: 'sm'
-        }, () => r))
+        }, () => roleLabel(r)))
       )
     }
   },
@@ -254,12 +257,12 @@ const openRow = (row: AdminUserRow) => {
   editRoles.value = [...(row.roles ?? [])]
 }
 
-const toggleRole = (name: string) => {
-  const idx = editRoles.value.indexOf(name)
+const toggleRole = (key: string) => {
+  const idx = editRoles.value.indexOf(key)
   if (idx === -1) {
-    editRoles.value = [...editRoles.value, name]
+    editRoles.value = [...editRoles.value, key]
   } else {
-    editRoles.value = editRoles.value.filter(r => r !== name)
+    editRoles.value = editRoles.value.filter(r => r !== key)
   }
 }
 
@@ -449,12 +452,12 @@ const openInviteModal = () => {
   inviteModalOpen.value = true
 }
 
-const toggleInviteRole = (name: string) => {
-  const idx = inviteForm.roles.indexOf(name)
+const toggleInviteRole = (key: string) => {
+  const idx = inviteForm.roles.indexOf(key)
   if (idx === -1) {
-    inviteForm.roles = [...inviteForm.roles, name]
+    inviteForm.roles = [...inviteForm.roles, key]
   } else {
-    inviteForm.roles = inviteForm.roles.filter(r => r !== name)
+    inviteForm.roles = inviteForm.roles.filter(r => r !== key)
   }
 }
 
@@ -614,7 +617,7 @@ const handleDelete = async () => {
                   size="sm"
                 >
                   <UIcon v-if="role === 'admin'" name="i-lucide-shield" class="size-3 mr-1" />
-                  {{ role }}
+                  {{ roleLabel(role) }}
                 </UBadge>
               </div>
               <a
@@ -756,7 +759,7 @@ const handleDelete = async () => {
             <div class="space-y-2">
               <label
                 v-for="role in availableRoles"
-                :key="role.name"
+                :key="role.key"
                 class="flex items-start gap-3 p-3 rounded-lg border border-(--ui-border) transition-colors"
                 :class="canAssignRole(role)
                   ? 'hover:bg-(--ui-bg-accented) cursor-pointer'
@@ -769,9 +772,9 @@ const handleDelete = async () => {
                   :disabled="canAssignRole(role)"
                 >
                   <UCheckbox
-                    :model-value="editRoles.includes(role.name)"
+                    :model-value="editRoles.includes(role.key)"
                     :disabled="savingRoles || !canAssignRole(role)"
-                    @update:model-value="toggleRole(role.name)"
+                    @update:model-value="toggleRole(role.key)"
                   />
                 </UTooltip>
                 <div class="flex-1 min-w-0">
@@ -873,7 +876,7 @@ const handleDelete = async () => {
             <div class="space-y-2">
               <label
                 v-for="role in availableRoles"
-                :key="role.name"
+                :key="role.key"
                 class="flex items-start gap-3 p-3 rounded-lg border border-(--ui-border) transition-colors"
                 :class="canAssignRole(role)
                   ? 'hover:bg-(--ui-bg-accented) cursor-pointer'
@@ -886,9 +889,9 @@ const handleDelete = async () => {
                   :disabled="canAssignRole(role)"
                 >
                   <UCheckbox
-                    :model-value="inviteForm.roles.includes(role.name)"
+                    :model-value="inviteForm.roles.includes(role.key)"
                     :disabled="inviting || !canAssignRole(role)"
-                    @update:model-value="toggleInviteRole(role.name)"
+                    @update:model-value="toggleInviteRole(role.key)"
                   />
                 </UTooltip>
                 <div class="flex-1 min-w-0">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ROLES, type RoleDefinition } from '~~/app/utils/role-definitions'
+import { STATIC_ROLES, STATIC_ROLE_NAMES, type StaticRoleEntry } from '~~/app/utils/role-definitions'
 import { PERMISSIONS, PERMISSION_META, type Permission } from '~~/app/utils/permissions'
 
 definePageMeta({
@@ -22,7 +22,7 @@ interface CustomRolesResponse {
 
 const toast = useToast()
 
-const staticRoles = computed<RoleDefinition[]>(() => Object.values(ROLES))
+const staticRoles = computed<readonly StaticRoleEntry[]>(() => STATIC_ROLES)
 
 const { data: customRolesData, refresh: refreshCustomRoles, pending: customRolesPending } =
   await useFetch<CustomRolesResponse>('/api/admin/custom-roles', {
@@ -108,7 +108,7 @@ const editPermissionGroups = computed(() => groupByResource(form.permissions))
 const trimmedName = computed(() => form.name.trim())
 const nameValid = computed(() => trimmedName.value.length >= 2)
 const collidesWithStatic = computed(() =>
-  nameValid.value && staticRoles.value.some(r => r.name === trimmedName.value)
+  nameValid.value && (STATIC_ROLE_NAMES as readonly string[]).includes(trimmedName.value)
 )
 const collisionError = computed(() =>
   collidesWithStatic.value ? `"${trimmedName.value}" is a built-in role name` : undefined
@@ -201,21 +201,21 @@ const handleDelete = async () => {
       <div class="space-y-3">
         <div
           v-for="role in staticRoles"
-          :key="'static-' + role.name"
+          :key="'static-' + role.key"
           class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) overflow-hidden"
         >
           <button
             class="w-full flex items-center justify-between p-4 hover:bg-(--ui-bg-accented)/50 transition-colors text-left"
-            :aria-expanded="expandedRole === 'static-' + role.name"
-            @click="toggleExpandedRole('static-' + role.name)"
+            :aria-expanded="expandedRole === 'static-' + role.key"
+            @click="toggleExpandedRole('static-' + role.key)"
           >
             <div class="flex items-center gap-3 min-w-0">
               <UIcon
-                :name="roleIcons[role.name] || 'i-lucide-user'"
+                :name="roleIcons[role.key] || 'i-lucide-user'"
                 class="size-5 text-(--ui-text-muted) shrink-0"
               />
               <div class="min-w-0">
-                <p class="text-sm font-medium capitalize">{{ role.name }}</p>
+                <p class="text-sm font-medium">{{ role.name }}</p>
                 <p class="text-xs text-(--ui-text-muted) truncate">{{ role.description }}</p>
               </div>
             </div>
@@ -224,14 +224,14 @@ const handleDelete = async () => {
                 {{ role.permissions.length }} / {{ PERMISSIONS.length }} permissions
               </UBadge>
               <UIcon
-                :name="expandedRole === 'static-' + role.name ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+                :name="expandedRole === 'static-' + role.key ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
                 class="size-4 text-(--ui-text-muted)"
               />
             </div>
           </button>
 
           <div
-            v-if="expandedRole === 'static-' + role.name"
+            v-if="expandedRole === 'static-' + role.key"
             class="border-t border-(--ui-border) p-4 space-y-5"
           >
             <div

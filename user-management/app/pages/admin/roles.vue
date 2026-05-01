@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ROLES, type RoleDefinition } from '~~/app/utils/role-definitions'
+import { STATIC_ROLES, type StaticRoleEntry } from '~~/app/utils/role-definitions'
 import { PERMISSIONS, PERMISSION_META, type Permission } from '~~/app/utils/permissions'
 
 definePageMeta({
@@ -7,7 +7,7 @@ definePageMeta({
   middleware: ['auth', 'admin']
 })
 
-const roles = computed<RoleDefinition[]>(() => Object.values(ROLES))
+const roles = computed<readonly StaticRoleEntry[]>(() => STATIC_ROLES)
 
 const roleIcons: Record<string, string> = {
   admin: 'i-lucide-shield',
@@ -15,8 +15,8 @@ const roleIcons: Record<string, string> = {
 }
 
 const expandedRole = ref<string | null>(null)
-const toggleExpandedRole = (name: string) => {
-  expandedRole.value = expandedRole.value === name ? null : name
+const toggleExpandedRole = (key: string) => {
+  expandedRole.value = expandedRole.value === key ? null : key
 }
 
 interface PermissionGroup {
@@ -24,7 +24,7 @@ interface PermissionGroup {
   permissions: { perm: Permission; granted: boolean; title: string; description: string }[]
 }
 
-const getPermissionGroups = (role: RoleDefinition): PermissionGroup[] => {
+const getPermissionGroups = (role: StaticRoleEntry): PermissionGroup[] => {
   const groups = new Map<string, PermissionGroup['permissions']>()
   for (const perm of PERMISSIONS) {
     const resource = perm.includes('.') ? perm.split('.', 1)[0]! : 'general'
@@ -52,21 +52,21 @@ const getPermissionGroups = (role: RoleDefinition): PermissionGroup[] => {
     <div class="space-y-3">
       <div
         v-for="role in roles"
-        :key="role.name"
+        :key="role.key"
         class="rounded-lg border border-(--ui-border) bg-(--ui-bg-elevated) overflow-hidden"
       >
         <button
           class="w-full flex items-center justify-between p-4 hover:bg-(--ui-bg-accented)/50 transition-colors text-left"
-          :aria-expanded="expandedRole === role.name"
-          @click="toggleExpandedRole(role.name)"
+          :aria-expanded="expandedRole === role.key"
+          @click="toggleExpandedRole(role.key)"
         >
           <div class="flex items-center gap-3 min-w-0">
             <UIcon
-              :name="roleIcons[role.name] || 'i-lucide-user'"
+              :name="roleIcons[role.key] || 'i-lucide-user'"
               class="size-5 text-(--ui-text-muted) shrink-0"
             />
             <div class="min-w-0">
-              <p class="text-sm font-medium capitalize">{{ role.name }}</p>
+              <p class="text-sm font-medium">{{ role.name }}</p>
               <p class="text-xs text-(--ui-text-muted) truncate">{{ role.description }}</p>
             </div>
           </div>
@@ -75,14 +75,14 @@ const getPermissionGroups = (role: RoleDefinition): PermissionGroup[] => {
               {{ role.permissions.length }} / {{ PERMISSIONS.length }} permissions
             </UBadge>
             <UIcon
-              :name="expandedRole === role.name ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
+              :name="expandedRole === role.key ? 'i-lucide-chevron-up' : 'i-lucide-chevron-down'"
               class="size-4 text-(--ui-text-muted)"
             />
           </div>
         </button>
 
         <div
-          v-if="expandedRole === role.name"
+          v-if="expandedRole === role.key"
           class="border-t border-(--ui-border) p-4 space-y-5"
         >
           <div
