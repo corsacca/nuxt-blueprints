@@ -67,14 +67,9 @@ function defaultDcrScopes(): string[] {
   const override = cfg.oauthDcrDefaultScopes as unknown
   if (Array.isArray(override)) {
     const advertised = new Set(getAdvertisedScopes())
-    // Reject offline_access from the array — clients must request
-    // refresh tokens explicitly via the registration scope param.
     for (const s of override) {
       if (typeof s !== 'string') {
         throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains a non-string entry: ${JSON.stringify(s)}`)
-      }
-      if (s === OFFLINE_ACCESS_SCOPE) {
-        throw new Error('[oauth] runtimeConfig.oauthDcrDefaultScopes must not include offline_access')
       }
       if (!isValidScope(s)) {
         throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains an unknown scope: ${s}`)
@@ -83,7 +78,16 @@ function defaultDcrScopes(): string[] {
         throw new Error(`[oauth] runtimeConfig.oauthDcrDefaultScopes contains scope "${s}" which is not in oauthAdvertisedScopes`)
       }
     }
-    return [...override as string[]]
+    // offline_access is added automatically. Native MCP clients (Cursor,
+    // Claude Desktop, VS Code) routinely omit `scope` at DCR but request
+    // offline_access at the authorize step — without it in the cap, the
+    // subset check fails and the OAuth flow dies on `invalid_scope`.
+    // Refresh tokens are non-negotiable for any practical MCP deployment,
+    // so we always include the protocol scope and let the consumer's
+    // override govern only the real permission set.
+    const result = [...override as string[]]
+    if (!result.includes(OFFLINE_ACCESS_SCOPE)) result.push(OFFLINE_ACCESS_SCOPE)
+    return result
   }
   return [...PERMISSIONS, OFFLINE_ACCESS_SCOPE]
 }

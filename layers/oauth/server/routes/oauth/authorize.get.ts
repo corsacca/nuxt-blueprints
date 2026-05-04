@@ -144,6 +144,17 @@ export default defineEventHandler(async (event) => {
     ? clientCap
     : parseScopeString(scopeParam)
   if (requestedScopes.length === 0 || !isScopeSubset(requestedScopes, clientCap)) {
+    logOauthEvent({
+      event: OAUTH_EVENTS.SCOPE_REJECTED,
+      userId: authUser.userId,
+      event3: event,
+      metadata: {
+        client_id: client.client_id,
+        reason: 'requested_not_subset_of_client_cap',
+        requested: requestedScopes.join(' '),
+        client_cap: client.scope
+      }
+    })
     await sendRedirect(event, errRedirect('invalid_scope', 'Requested scope is empty or not permitted for this client'))
     return
   }
@@ -164,6 +175,17 @@ export default defineEventHandler(async (event) => {
   }
 
   if (!hasAnyPermissionScope(grantedScopes)) {
+    logOauthEvent({
+      event: OAUTH_EVENTS.SCOPE_REJECTED,
+      userId: authUser.userId,
+      event3: event,
+      metadata: {
+        client_id: client.client_id,
+        reason: 'user_lacks_any_permission_scope',
+        requested: requestedScopes.join(' '),
+        granted: grantedScopes.join(' ')
+      }
+    })
     await sendRedirect(event, errRedirect('invalid_scope', 'No permission scope can be granted for this user'))
     return
   }
