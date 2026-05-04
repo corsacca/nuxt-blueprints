@@ -4,6 +4,11 @@ import { getRegisteredScopes } from './scopes-registry'
 
 const LOOPBACK_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]'])
 
+// Schemes that are never safe as redirect_uri targets, regardless of the
+// rest of the URL. `javascript:`, `data:`, `vbscript:` can execute code
+// in the user-agent on redirect; `file:` resolves to local-disk reads.
+const DANGEROUS_SCHEMES = new Set(['javascript:', 'data:', 'vbscript:', 'file:'])
+
 export interface ParsedRedirectUri {
   valid: boolean
   serialized?: string
@@ -32,8 +37,11 @@ export function parseRedirectUri(input: string): ParsedRedirectUri {
   } catch {
     return { valid: false, error: 'redirect_uri must be an absolute URL' }
   }
-  if (!url.protocol || !url.host) {
-    return { valid: false, error: 'redirect_uri must include a scheme and host' }
+  if (!url.protocol) {
+    return { valid: false, error: 'redirect_uri must include a scheme' }
+  }
+  if (DANGEROUS_SCHEMES.has(url.protocol)) {
+    return { valid: false, error: `redirect_uri scheme "${url.protocol}" is not allowed` }
   }
   if (url.hash) {
     return { valid: false, error: 'redirect_uri must not contain a fragment' }
@@ -41,16 +49,20 @@ export function parseRedirectUri(input: string): ParsedRedirectUri {
   if (url.username || url.password) {
     return { valid: false, error: 'redirect_uri must not contain userinfo' }
   }
-  const isHttps = url.protocol === 'https:'
-  // RFC 8252 §7.3 — loopback http redirect URIs are permitted in any
-  // environment for native installed apps. The historical dev-only
-  // gate was conflating "no http to public hosts" (correct) with
-  // "no http loopback in prod" (out of spec, blocks every native
-  // MCP client).
-  const isLoopback
-    = url.protocol === 'http:'
-      && LOOPBACK_HOSTS.has(url.hostname.toLowerCase())
-  if (!isHttps && !isLoopback) {
+  const isHttp = url.protocol === 'http:' || url.protocol === 'https:'
+  if (isHttp && !url.host) {
+    return { valid: false, error: 'redirect_uri must include a host' }
+  }
+  // RFC 8252 defines three valid redirect patterns for native apps:
+  //   §7.2 https — claimed-scheme URI (web-hosted apps).
+  //   §7.3 http loopback — localhost/127.0.0.1/[::1] only.
+  //   §7.1 private-use URI scheme — e.g. `cursor://...`,
+  //        `com.example.app://...`. Used by IDE-hosted MCP clients
+  //        (Cursor, VS Code, Claude Desktop) that don't run a local
+  //        HTTP listener.
+  // Reject http on non-loopback hosts; everything else not already
+  // filtered as dangerous is treated as a private-use scheme.
+  if (url.protocol === 'http:' && !LOOPBACK_HOSTS.has(url.hostname.toLowerCase())) {
     return { valid: false, error: 'redirect_uri must use https (http allowed only for loopback)' }
   }
   return { valid: true, serialized: url.toString() }
