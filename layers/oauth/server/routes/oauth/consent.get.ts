@@ -53,16 +53,46 @@ function page(status: number, body: string): string {
     .scope { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-weight: 600; font-size: 0.875rem; }
     .scope-desc { color: var(--text-muted); font-size: 0.875rem; margin-top: 0.25rem; }
     .buttons { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 1.5rem; }
-    button { padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; }
+    button { padding: 0.75rem 1rem; border-radius: 0.5rem; font-size: 1rem; font-weight: 600; cursor: pointer; border: 1px solid transparent; display: inline-flex; align-items: center; justify-content: center; gap: 0.5rem; }
     button.primary { background: var(--primary); color: var(--primary-text); }
     button.neutral { background: var(--neutral-bg); border-color: var(--neutral-border); color: var(--text); }
-    button:hover { opacity: 0.9; }
+    button:hover:not(:disabled) { opacity: 0.9; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .spinner { width: 1rem; height: 1rem; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+    button.is-loading .spinner { display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .post-submit-note { margin-top: 1rem; font-size: 0.875rem; color: var(--text-muted); display: none; }
+    form.is-submitted .post-submit-note { display: block; }
   </style>
 </head>
 <body>
   <div class="container">
     ${body}
   </div>
+  <script>
+    (function () {
+      var form = document.querySelector('form[action="/oauth/authorize"]');
+      if (!form) return;
+      form.addEventListener('submit', function (event) {
+        var clicked = event.submitter;
+        if (clicked && clicked.name === 'action') {
+          // Mirror the clicked action into a hidden field so the right button's
+          // value still reaches the server even after we disable the buttons.
+          var hidden = document.createElement('input');
+          hidden.type = 'hidden';
+          hidden.name = 'action';
+          hidden.value = clicked.value;
+          form.appendChild(hidden);
+        }
+        var buttons = form.querySelectorAll('button');
+        for (var i = 0; i < buttons.length; i++) {
+          buttons[i].disabled = true;
+          if (buttons[i] === clicked) buttons[i].classList.add('is-loading');
+        }
+        form.classList.add('is-submitted');
+      });
+    })();
+  </script>
 </body>
 </html>`.trim()
 }
@@ -141,9 +171,10 @@ export default defineEventHandler(async (event) => {
         <input type="hidden" name="request_id" value="${escapeHtml(vm.requestId!)}">
         <input type="hidden" name="csrf_token" value="${escapeHtml(vm.csrfToken!)}">
         <div class="buttons">
-          <button type="submit" name="action" value="approve" class="primary">Approve</button>
-          <button type="submit" name="action" value="deny" class="neutral">Deny</button>
+          <button type="submit" name="action" value="approve" class="primary"><span class="spinner" aria-hidden="true"></span>Approve</button>
+          <button type="submit" name="action" value="deny" class="neutral"><span class="spinner" aria-hidden="true"></span>Deny</button>
         </div>
+        <p class="post-submit-note">Redirecting back to the app — you can close this tab if it doesn't close on its own.</p>
       </form>
     </div>`)
 })
