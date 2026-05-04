@@ -136,8 +136,13 @@ export default defineEventHandler(async (event) => {
   }
 
   // Scope: requested must be subset of client cap, then intersect with user RBAC.
-  const requestedScopes = parseScopeString(scopeParam)
+  // RFC 6749 §3.3 — when the client omits `scope`, fall back to the client's
+  // registered cap. Native MCP clients (e.g. Cursor) routinely omit it on the
+  // authorize call since they already pinned the scope set at DCR time.
   const clientCap = parseScopeString(client.scope)
+  const requestedScopes = scopeParam.trim().length === 0
+    ? clientCap
+    : parseScopeString(scopeParam)
   if (requestedScopes.length === 0 || !isScopeSubset(requestedScopes, clientCap)) {
     await sendRedirect(event, errRedirect('invalid_scope', 'Requested scope is empty or not permitted for this client'))
     return
